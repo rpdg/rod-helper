@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
+	"github.com/go-rod/rod/lib/proto"
 	"github.com/go-rod/rod/lib/utils"
 )
 
@@ -80,13 +81,13 @@ type IResult struct {
 	ExternalSection map[string]IExternalResult `json:"externalSection"`
 }
 
-type RPA struct {
+type Crawler struct {
 	Browser    *rod.Browser
 	CfgFetcher func(path string) (*IConfig, error)
 }
 
-func (r *RPA) CrawlUrl(url string, cfgFilePath string, autoDownload bool, closeTab bool) (*IResult, *rod.Page, error) {
-	_, cfg, err := r.fetchCfg(cfgFilePath)
+func (c *Crawler) CrawlUrl(url string, cfgFilePath string, autoDownload bool, closeTab bool) (*IResult, *rod.Page, error) {
+	_, cfg, err := c.fetchCfg(cfgFilePath)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -95,16 +96,16 @@ func (r *RPA) CrawlUrl(url string, cfgFilePath string, autoDownload bool, closeT
 	selector := cfg.PageLoad.Selector
 	delay := cfg.PageLoad.Sleep
 
-	page, err := r.OpenPage(url, delay, selector, wait)
+	page, err := c.OpenPage(url, delay, selector, wait)
 	if err != nil {
 		return nil, nil, err
 	}
-	res, err := r.CrawlPage(page, cfgFilePath, autoDownload, closeTab)
+	res, err := c.CrawlPage(page, cfgFilePath, autoDownload, closeTab)
 	return res, page, err
 }
 
-func (r *RPA) CrawlPage(page *rod.Page, cfgFilePath string, autoDownload bool, closeTab bool) (*IResult, error) {
-	cfgBytes, cfg, err := r.fetchCfg(cfgFilePath)
+func (c *Crawler) CrawlPage(page *rod.Page, cfgFilePath string, autoDownload bool, closeTab bool) (*IResult, error) {
+	cfgBytes, cfg, err := c.fetchCfg(cfgFilePath)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +132,7 @@ func (r *RPA) CrawlPage(page *rod.Page, cfgFilePath string, autoDownload bool, c
 		for _, dlCfgItem := range cfg.DownloadSection {
 			key := dlCfgItem.ID
 			if dlDataItem, ok := dlsMap[key]; ok {
-				_ = r.download(page, dlCfgItem, &dlDataItem, downloadRoot)
+				_ = c.download(page, dlCfgItem, &dlDataItem, downloadRoot)
 			}
 		}
 	}
@@ -162,7 +163,7 @@ func (r *RPA) CrawlPage(page *rod.Page, cfgFilePath string, autoDownload bool, c
 				}
 
 				if extUrl != "" {
-					extData, _, err2 := r.CrawlUrl(extUrl, extCfg, autoDownload, closeTab)
+					extData, _, err2 := c.CrawlUrl(extUrl, extCfg, autoDownload, closeTab)
 					if err2 != nil {
 						return nil, err2
 					}
@@ -184,15 +185,22 @@ func (r *RPA) CrawlPage(page *rod.Page, cfgFilePath string, autoDownload bool, c
 	return &result, nil
 }
 
-func (r *RPA) AttachDefaultBrowser() *rod.Browser {
+func (c *Crawler) AttachDefaultBrowser() *rod.Browser {
 	wsURL := launcher.NewUserMode().MustLaunch()
-	r.Browser = rod.New().ControlURL(wsURL).MustConnect().NoDefaultDevice()
-	return r.Browser
+	c.Browser = rod.New().ControlURL(wsURL).MustConnect().NoDefaultDevice()
+	return c.Browser
 }
 
-func (r *RPA) OpenPage(url string, sleep int64, selector string, sign WaitTarget) (page *rod.Page, err error) {
-	page = r.Browser.MustPage(url)
-	page.MustWaitLoad()
+func (c *Crawler) OpenPage(url string, sleep int64, selector string, sign WaitTarget) (page *rod.Page, err error) {
+	page, err = c.Browser.Page(proto.TargetCreateTarget{URL: url})
+	if err != nil {
+		return nil, err
+	}
+
+	err = page.WaitLoad()
+	if err != nil {
+		return nil, err
+	}
 
 	if selector != "" {
 		if sign == WaitShow {
@@ -288,7 +296,7 @@ func ElementVisible(page *rod.Page, selector string) bool {
 	return result.Bool()
 }
 
-func (r *RPA) download(page *rod.Page, dlCfg IDownloadConfig, dlData *IDownloadResult, downloadRoot string) error {
+func (c *Crawler) download(page *rod.Page, dlCfg IDownloadConfig, dlData *IDownloadResult, downloadRoot string) error {
 	selector := dlCfg.Selector
 	downType := dlCfg.Type
 
@@ -334,9 +342,9 @@ func (r *RPA) download(page *rod.Page, dlCfg IDownloadConfig, dlData *IDownloadR
 	return nil
 }
 
-func (r *RPA) fetchCfg(cfgPath string) ([]byte, *IConfig, error) {
-	if r.CfgFetcher != nil {
-		cfg, err := r.CfgFetcher(cfgPath)
+func (c *Crawler) fetchCfg(cfgPath string) ([]byte, *IConfig, error) {
+	if c.CfgFetcher != nil {
+		cfg, err := c.CfgFetcher(cfgPath)
 		if err != nil {
 			return nil, nil, err
 		} else {
