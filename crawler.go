@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/go-rod/rod/lib/input"
 	"net/url"
 	"os"
 	"path"
@@ -313,33 +314,28 @@ func (c *Crawler) download(page *rod.Page, dlCfg IDownloadConfig, dlData *IDownl
 		return err
 	}
 
-	for i, fileName := range dlData.FileNames {
-		fileFullPathName := path.Join(saveDir, fileName)
-		if downType == DownloadElement {
-			browser := page.Browser()
-			elems, err := page.Elements(selector)
-			if err != nil {
-				return err
-			}
-			waitDownload := browser.MustWaitDownload()
-			elems[i].MustClick()
-			err = utils.OutputFile(fileFullPathName, waitDownload())
-			if err != nil {
-				dlData.Errors = append(dlData.Errors, i)
-			}
-		} else if downType == DownloadUrl {
-			fileBytes, err := page.GetResource(dlData.Links[i])
-			if err != nil {
-				dlData.Errors = append(dlData.Errors, i)
-			} else {
-				err := utils.OutputFile(fileFullPathName, fileBytes)
-				if err != nil {
-					dlData.Errors = append(dlData.Errors, i)
-				}
-			}
-		}
+	browser := page.Browser()
+	elems, err := page.Elements(selector)
+	if err != nil {
+		return err
 	}
 
+	for i, elem := range elems {
+		fileFullPathName := path.Join(saveDir, dlData.FileNames[i])
+		waitDownload := browser.MustWaitDownload()
+		if downType == DownloadUrl {
+			_ = page.Keyboard.Press(input.AltLeft)
+		}
+		elem.MustClick()
+		err = utils.OutputFile(fileFullPathName, waitDownload())
+		if err != nil {
+			dlData.Errors = append(dlData.Errors, i)
+		}
+		if downType == DownloadUrl {
+			_ = page.Keyboard.Release(input.AltLeft)
+		}
+	}
+	
 	return nil
 }
 
