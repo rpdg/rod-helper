@@ -1,16 +1,17 @@
 package rpa
 
 import (
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
-
-	"github.com/rpdg/rod-helper/resource"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
@@ -113,7 +114,7 @@ func (c *Crawler) CrawlPage(page *rod.Page, cfgFilePath string, autoDownload boo
 	()=>{
 		%s;
 		return run(%s);
-	}`, string(resource.CrawlerJs), cfgBytes)
+	}`, crawlerJs, cfgBytes)
 
 	resultJson, err := page.Eval(jsCode)
 	if err != nil {
@@ -371,10 +372,27 @@ func innerFetcher(cfgFilePath string) ([]byte, *IConfig, error) {
 }
 
 func joinPath(p1, p2 string) (string, error) {
-	if filepath.IsAbs(p2) {
-		return p2, nil
+	match, _ := regexp.MatchString("^https?://", p1)
+	if match {
+		base, err := url.Parse(p1)
+		if err != nil {
+			return "", err
+		}
+		ref, err := url.Parse(p2)
+		if err != nil {
+			return "", err
+		}
+		return base.ResolveReference(ref).String(), nil
+	} else {
+		if filepath.IsAbs(p2) {
+			return p2, nil
+		}
+		p1 = filepath.Dir(p1)
+		p := filepath.Join(p1, p2)
+		return filepath.Abs(p)
 	}
-	p1 = filepath.Dir(p1)
-	p := filepath.Join(p1, p2)
-	return filepath.Abs(p)
+
 }
+
+//go:embed "resource/crawler.js"
+var crawlerJs string
