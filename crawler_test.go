@@ -1,13 +1,12 @@
 package rpa
 
 import (
-	"fmt"
 	"os"
 	"testing"
 )
 
 func TestCrawler_CrawlUrl(t *testing.T) {
-	t.Run("crawl by url", func(t *testing.T) {
+	t.Run("crawl bing.com and download PDF files", func(t *testing.T) {
 		const sampleConfigJson = `
 		  {
 		  "dataSection": [
@@ -46,7 +45,7 @@ func TestCrawler_CrawlUrl(t *testing.T) {
 		  ]
 		}`
 		testUrl := "https://cn.bing.com/search?q=sample+simple+pdf"
-		testFile := "./bing.json"
+		testFile := "./bing.config.json"
 		os.WriteFile(testFile, []byte(sampleConfigJson), 0644)
 		defer func() {
 			os.Remove(testFile)
@@ -64,7 +63,6 @@ func TestCrawler_CrawlUrl(t *testing.T) {
 					if l != expected {
 						t.Errorf("expected %d but got %d", expected, l)
 					}
-					fmt.Println()
 				}
 			}
 		}
@@ -73,20 +71,40 @@ func TestCrawler_CrawlUrl(t *testing.T) {
 }
 
 func Test_K2(t *testing.T) {
-	url1 := "https://flowcenter.opg.cn/Procmanage/flowmanage?ProcInstID=61336"
-	c := Crawler{}
-	c.AttachDefaultBrowser()
-	val, _, err := c.CrawlUrl(url1, "./sample/k2_d1.json", false, true)
-	if err != nil {
-		t.Errorf("%v", err)
-	} else {
-		if val == nil {
-			t.Errorf("nil result")
+	t.Run("crawl k2 list page", func(t *testing.T) {
+		url2 := "https://flowcenter.opg.cn/Portal/ProcessCenter/MyFlowList"
+		c := Crawler{}
+		c.AttachDefaultBrowser()
+		val, _, err := c.CrawlUrl(url2, "./sample/k2_list.json", false, true)
+		if err != nil {
+			t.Errorf("%v", err)
 		} else {
-			err := WriteSortedJSONToFile(val, "./res.json")
-			if err != nil {
-				t.Errorf("%v", err)
+			if val == nil {
+				t.Errorf("nil result")
+			} else {
+				err := WriteSortedJSONToFile(val, "./res_list.json")
+				if err != nil {
+					t.Errorf("%v", err)
+				}
 			}
 		}
-	}
+	})
+	t.Run("crawl k2 main page", func(t *testing.T) {
+		url1 := "https://flowcenter.opg.cn/Procmanage/flowmanage?ProcInstID=61336"
+		c := Crawler{}
+		c.AttachDefaultBrowser()
+		val, _, err := c.CrawlUrl(url1, "./sample/k2_d1.json", false, true)
+		if err != nil {
+			t.Errorf("%v", err)
+		} else {
+			if val == nil {
+				t.Errorf("nil result")
+			} else {
+				err := WriteSortedJSONToFile(val, "./res.json")
+				if err != nil {
+					t.Errorf("%v", err)
+				}
+			}
+		}
+	})
 }

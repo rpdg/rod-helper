@@ -3,20 +3,16 @@ package rpa
 import (
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
+	"github.com/go-rod/rod/lib/launcher"
+	"github.com/go-rod/rod/lib/utils"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
-	"regexp"
 	"strings"
-	"time"
-
-	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/launcher"
-	"github.com/go-rod/rod/lib/proto"
-	"github.com/go-rod/rod/lib/utils"
 )
 
 type WaitSign string
@@ -87,36 +83,58 @@ type Crawler struct {
 	CfgFetcher func(path string) (*IConfig, error)
 }
 
-func (c *Crawler) CrawlUrl(url string, cfgFilePath string, autoDownload bool, closeTab bool) (*IResult, *rod.Page, error) {
-	_, cfg, err := c.fetchCfg(cfgFilePath)
-	if err != nil {
-		return nil, nil, err
+func (c *Crawler) CrawlUrl(url string, cfgOrFile interface{}, autoDownload bool, closeTab bool) (*IResult, *rod.Page, error) {
+	var cfg *IConfig
+	var err error
+	cfgFilePath := ""
+	switch cfgOrFile.(type) {
+	case string:
+		cfgFilePath = cfgOrFile.(string)
+		cfg, err = c.fetchCfg(cfgFilePath)
+		if err != nil {
+			return nil, nil, err
+		}
+	case *IConfig:
+		cfg = cfgOrFile.(*IConfig)
+	default:
+		return nil, nil, errors.New("unknown config data")
 	}
 
 	wait := cfg.PageLoad.Wait
 	selector := cfg.PageLoad.Selector
 	delay := cfg.PageLoad.Sleep
 
-	page, err := c.OpenPage(url, delay, selector, wait)
+	page, err := OpenPage(c.Browser, url, delay, selector, wait)
 	if err != nil {
 		return nil, nil, err
 	}
-	res, err := c.CrawlPage(page, cfgFilePath, autoDownload, closeTab)
+	res, err := c.CrawlPage(page, cfg, autoDownload, closeTab)
 	return res, page, err
 }
 
-func (c *Crawler) CrawlPage(page *rod.Page, cfgFilePath string, autoDownload bool, closeTab bool) (*IResult, error) {
-	cfgBytes, cfg, err := c.fetchCfg(cfgFilePath)
-	if err != nil {
-		return nil, err
+func (c *Crawler) CrawlPage(page *rod.Page, cfgOrFile interface{}, autoDownload bool, closeTab bool) (*IResult, error) {
+	var cfg *IConfig
+	var err error
+	cfgFilePath := ""
+	switch cfgOrFile.(type) {
+	case string:
+		cfgFilePath = cfgOrFile.(string)
+		cfg, err = c.fetchCfg(cfgFilePath)
+		if err != nil {
+			return nil, err
+		}
+	case *IConfig:
+		cfg = cfgOrFile.(*IConfig)
+	default:
+		return nil, errors.New("unknown config data")
 	}
 	jsCode := fmt.Sprintf(`
-	()=>{
+	(cfg)=>{
 		%s;
-		return run(%s);
-	}`, crawlerJs, cfgBytes)
+		return run(cfg);
+	}`, crawlerJs)
 
-	resultJson, err := page.Eval(jsCode)
+	resultJson, err := page.Eval(jsCode, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -198,32 +216,6 @@ func (c *Crawler) AttachDefaultBrowser() *rod.Browser {
 	return c.Browser
 }
 
-func (c *Crawler) OpenPage(url string, sleep int64, selector string, sign WaitSign) (page *rod.Page, err error) {
-	page, err = c.Browser.Page(proto.TargetCreateTarget{URL: url})
-	if err != nil {
-		return nil, err
-	}
-
-	err = page.WaitLoad()
-	if err != nil {
-		return nil, err
-	}
-
-	if selector != "" {
-		if sign == WaitShow {
-			err = WaitElementShow(page, selector, 20)
-		} else if sign == WaitHide {
-			err = WaitElementHide(page, selector, 20)
-		}
-	}
-
-	if sleep > 0 {
-		time.Sleep(time.Duration(sleep) * time.Second)
-	}
-
-	return
-}
-
 func (c *Crawler) download(page *rod.Page, dlCfg IDownloadConfig, dlData *IDownloadResult, downloadRoot string) error {
 	selector := dlCfg.Selector
 	downType := dlCfg.Type
@@ -234,7 +226,7 @@ func (c *Crawler) download(page *rod.Page, dlCfg IDownloadConfig, dlData *IDownl
 	} else {
 		subDir = dlCfg.ID
 	}
-	saveDir := path.Join(downloadRoot, subDir)
+	saveDir := filepath.Join(downloadRoot, subDir)
 	//err := os.MkdirAll(saveDir, os.ModePerm)
 	//if err != nil {
 	//	return err
@@ -247,7 +239,7 @@ func (c *Crawler) download(page *rod.Page, dlCfg IDownloadConfig, dlData *IDownl
 	}
 
 	for i, elem := range elems {
-		fileFullPathName := path.Join(saveDir, dlData.FileNames[i])
+		fileFullPathName := filepath.Join(saveDir, dlData.FileNames[i])
 		waitDownload := browser.MustWaitDownload()
 		if downType == DownloadUrl {
 			_ = page.Keyboard.Press(input.AltLeft)
@@ -265,55 +257,53 @@ func (c *Crawler) download(page *rod.Page, dlCfg IDownloadConfig, dlData *IDownl
 	return nil
 }
 
-func (c *Crawler) fetchCfg(cfgPath string) ([]byte, *IConfig, error) {
+func (c *Crawler) fetchCfg(cfgPath string) (*IConfig, error) {
 	if c.CfgFetcher != nil {
 		cfg, err := c.CfgFetcher(cfgPath)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		} else {
-			cfgBytes, err2 := json.Marshal(cfg)
-			return cfgBytes, cfg, err2
+			_, err2 := json.Marshal(cfg)
+			return cfg, err2
 		}
 	} else {
 		return innerFetcher(cfgPath)
 	}
 }
 
-func innerFetcher(cfgFilePath string) ([]byte, *IConfig, error) {
+func innerFetcher(cfgFilePath string) (*IConfig, error) {
 	cfgJsonStr, err := os.ReadFile(cfgFilePath)
 	if err != nil {
 		fmt.Println("Error reading config file:", err)
-		return nil, nil, err
+		return nil, err
 	}
 	var cfg IConfig
 	err = json.Unmarshal(cfgJsonStr, &cfg)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return cfgJsonStr, &cfg, nil
+	return &cfg, nil
 }
 
-func joinPath(p1, p2 string) (string, error) {
-	match, _ := regexp.MatchString("^https?://", p1)
-	if match {
-		base, err := url.Parse(p1)
+func joinPath(basePath, refPath string) (string, error) {
+	if strings.HasPrefix(basePath, "http://") || strings.HasPrefix(basePath, "https://") {
+		base, err := url.Parse(basePath)
 		if err != nil {
 			return "", err
 		}
-		ref, err := url.Parse(p2)
+		ref, err := url.Parse(refPath)
 		if err != nil {
 			return "", err
 		}
 		return base.ResolveReference(ref).String(), nil
 	} else {
-		if filepath.IsAbs(p2) {
-			return p2, nil
+		if filepath.IsAbs(refPath) {
+			return refPath, nil
 		}
-		p1 = filepath.Dir(p1)
-		p := filepath.Join(p1, p2)
+		basePath = filepath.Dir(basePath)
+		p := filepath.Join(basePath, refPath)
 		return filepath.Abs(p)
 	}
-
 }
 
 //go:embed "resource/crawler.js"
