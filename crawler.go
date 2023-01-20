@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -20,18 +21,18 @@ import (
 	"github.com/go-rod/rod/lib/utils"
 )
 
-type WaitTarget string
+type WaitSign string
 
 const (
-	WaitShow  WaitTarget = "show"
-	WaitHide  WaitTarget = "hide"
-	WaitDelay WaitTarget = "wait"
+	WaitShow  WaitSign = "show"
+	WaitHide  WaitSign = "hide"
+	WaitDelay WaitSign = "wait"
 )
 
 type IPageLoad struct {
-	Wait     WaitTarget `json:"wait"`
-	Selector string     `json:"selector,omitempty"`
-	Sleep    int64      `json:"sleep,omitempty"`
+	Wait     WaitSign `json:"wait"`
+	Selector string   `json:"selector,omitempty"`
+	Sleep    int64    `json:"sleep,omitempty"`
 }
 
 type IConfigNode struct {
@@ -150,30 +151,46 @@ func (c *Crawler) CrawlPage(page *rod.Page, cfgFilePath string, autoDownload boo
 				var resNode any
 				resNode = result.Data
 				if secName != "" {
-					if m, ok := resNode.(map[string]interface{}); ok {
+					if m, ok := resNode.(map[string]any); ok {
 						resNode = m[secName]
 					} else {
 						return nil, err
 					}
 				}
 
-				var extUrl string
-				if m, ok := resNode.(map[string]interface{}); ok {
-					extUrl, _ = m[itemName].(string)
-				} else {
-					return nil, err
-				}
-
-				if extUrl != "" {
-					extData, _, err2 := c.CrawlUrl(extUrl, extCfg, autoDownload, closeTab)
-					if err2 != nil {
-						return nil, err2
-					}
-
-					if m, ok := resNode.(map[string]interface{}); ok {
-						m[itemName] = extData.Data
+				if resNode != nil {
+					if reflect.ValueOf(resNode).Kind() == reflect.Slice {
+						if arr, ok := resNode.([]any); ok {
+							for _, resExtNode := range arr {
+								if extNode, oke := resExtNode.(map[string]any); oke {
+									extUrl := extNode[itemName].(string)
+									extData, _, err2 := c.CrawlUrl(extUrl, extCfg, autoDownload, closeTab)
+									if err2 != nil {
+										extNode[itemName] = fmt.Sprintf("an error occurred when crawling the external url: %s", extUrl)
+									} else {
+										extNode[itemName] = extData.Data
+									}
+								}
+							}
+						}
 					} else {
-						return nil, err
+						var extUrl string
+						if m, ok := resNode.(map[string]interface{}); ok {
+							extUrl, _ = m[itemName].(string)
+							if extUrl != "" {
+								extData, _, err2 := c.CrawlUrl(extUrl, extCfg, autoDownload, closeTab)
+								if err2 != nil {
+									return nil, err2
+								}
+								if s, oks := resNode.(map[string]interface{}); oks {
+									s[itemName] = extData.Data
+								} else {
+									return nil, err
+								}
+							}
+						} else {
+							return nil, errors.New(fmt.Sprintf("parse %s node error", itemName))
+						}
 					}
 				}
 			}
@@ -193,7 +210,7 @@ func (c *Crawler) AttachDefaultBrowser() *rod.Browser {
 	return c.Browser
 }
 
-func (c *Crawler) OpenPage(url string, sleep int64, selector string, sign WaitTarget) (page *rod.Page, err error) {
+func (c *Crawler) OpenPage(url string, sleep int64, selector string, sign WaitSign) (page *rod.Page, err error) {
 	page, err = c.Browser.Page(proto.TargetCreateTarget{URL: url})
 	if err != nil {
 		return nil, err
@@ -309,10 +326,10 @@ func (c *Crawler) download(page *rod.Page, dlCfg IDownloadConfig, dlData *IDownl
 		subDir = dlCfg.ID
 	}
 	saveDir := path.Join(downloadRoot, subDir)
-	err := os.MkdirAll(saveDir, os.ModePerm)
-	if err != nil {
-		return err
-	}
+	//err := os.MkdirAll(saveDir, os.ModePerm)
+	//if err != nil {
+	//	return err
+	//}
 
 	browser := page.Browser()
 	elems, err := page.Elements(selector)
@@ -335,7 +352,7 @@ func (c *Crawler) download(page *rod.Page, dlCfg IDownloadConfig, dlData *IDownl
 			_ = page.Keyboard.Release(input.AltLeft)
 		}
 	}
-	
+
 	return nil
 }
 

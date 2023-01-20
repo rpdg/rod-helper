@@ -1,0 +1,16 @@
+{
+  "pageLoad": {
+    "wait": "wait",
+    "selector": "",
+    "sleep": 3
+  },
+  "dataSection": [
+    {
+      "selector": "#refrenceNumberAuto_label",
+      "label": "合同编号 或 条形码",
+      "id": "code",
+      "itemType": "text",
+      "valueRender":"if (!val || escape(val).indexOf('%u') > -1){return document.getElementById('avatarCode').textContent} else {return val}"
+    }
+  ]
+}

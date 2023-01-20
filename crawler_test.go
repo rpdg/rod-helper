@@ -1,8 +1,10 @@
 package rpa
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"testing"
 )
 
@@ -72,4 +74,57 @@ func TestCrawler_CrawlUrl(t *testing.T) {
 		}
 
 	})
+}
+
+func Test_K2(t *testing.T) {
+	url1 := "https://flowcenter.opg.cn/Procmanage/flowmanage?ProcInstID=61336"
+	c := Crawler{}
+	c.AttachDefaultBrowser()
+	val, _, err := c.CrawlUrl(url1, "./sample/k2_d1.json", false, true)
+	if err != nil {
+		fmt.Println("err: ", err)
+	} else {
+		if val == nil {
+			t.Errorf("nil result")
+		} else {
+			//s, _ := json.MarshalIndent(val, "", "\t")
+			//fmt.Println(string(s))
+			WriteSortedJSONToFile(val, "./res.json")
+		}
+	}
+}
+
+func WriteSortedJSONToFile(data interface{}, filename string) error {
+	// marshal the struct to json
+	b, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+
+	var jsonData map[string]interface{}
+	err = json.Unmarshal(b, &jsonData)
+	if err != nil {
+		return err
+	}
+
+	// sort the keys
+	var keys []string
+	for key := range jsonData {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	// rebuild the json object in sorted order
+	sortedData := make(map[string]interface{})
+	for _, key := range keys {
+		sortedData[key] = jsonData[key]
+	}
+	// marshal the sorted json object
+	sortedJson, err := json.Marshal(sortedData)
+	if err != nil {
+		return err
+	}
+
+	// write the json to a file
+	return os.WriteFile(filename, sortedJson, 0644)
 }

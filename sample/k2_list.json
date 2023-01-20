@@ -1,0 +1,30 @@
+{
+  "dataSection" : [
+    {
+      "label": "合同列表",
+      "id": "linkList",
+      "selector": "#bj > tr",
+      "sectionType": "list",
+      "filterRender": "return val.currentStep==='结束节点'",
+      "items": [
+        {
+          "label": "链接地址",
+          "id": "url",
+          "selector": "a",
+          "itemType": "text",
+          "valueProper": "href"
+        },{
+          "label": "标题",
+          "id": "title",
+          "selector": "td:nth-of-type(2)",
+          "itemType": "text"
+        },{
+          "label": "当前节点",
+          "id": "currentStep",
+          "selector": "td:nth-of-type(3)",
+          "itemType": "text"
+        }
+      ]
+    }
+  ]
+}
