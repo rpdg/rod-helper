@@ -21,8 +21,7 @@ function assignDeep(target, ...sources) {
                     if (hash.get(source[key])) {
                         result[key] = hash.get(source[key]);
                         isPropertyDone = true;
-                    }
-                    else {
+                    } else {
                         result[key] = Array.isArray(source[key]) ? [] : {};
                         hash.set(source[key], result[key]);
                     }
@@ -31,29 +30,31 @@ function assignDeep(target, ...sources) {
                     result[key]['__hash__'] = hash;
                     assignDeep(result[key], source[key]);
                 }
-            }
-            else {
-                Object.assign(result, { [key]: source[key] });
+            } else {
+                Object.assign(result, {[key]: source[key]});
             }
         });
     });
     delete result['__hash__'];
     return result;
 }
+
 const externalDict = {};
+
 function appendExternalSection(extObj) {
     let key = extObj.connect;
     if (!externalDict[key]) {
         externalDict[key] = extObj;
     }
 }
+
 function crawlList(sectionId, sectionElements, items) {
     let dataArray = [];
     let renders = {};
     sectionElements.forEach((tableRow) => {
         let data = {};
         items.forEach((item, i) => {
-            let { result, node } = crawItem(item, tableRow);
+            let {result, node} = crawItem(item, tableRow);
             data[item.id] = result;
             if (item.valueRender) {
                 try {
@@ -66,14 +67,13 @@ function crawlList(sectionId, sectionElements, items) {
                     if (res !== undefined) {
                         data[item.id] = res;
                     }
-                }
-                catch (err) {
+                } catch (err) {
                     console.error('[' + item.id + '.valueRender]', err);
                     data[item.id] = `err(${err.message})`;
                 }
             }
             if (item.external) {
-                let { id, config } = item.external;
+                let {id, config} = item.external;
                 appendExternalSection({
                     id: id || item.id,
                     config,
@@ -85,10 +85,11 @@ function crawlList(sectionId, sectionElements, items) {
     });
     return dataArray;
 }
+
 function crawlForm(sectionId, sectionElement, items) {
     let dataObject = {};
     items.forEach((item) => {
-        let { result, node } = crawItem(item, sectionElement);
+        let {result, node} = crawItem(item, sectionElement);
         dataObject[item.id] = result;
         if (item.valueRender) {
             try {
@@ -98,14 +99,13 @@ function crawlForm(sectionId, sectionElement, items) {
                 if (res !== undefined) {
                     dataObject[item.id] = res;
                 }
-            }
-            catch (err) {
+            } catch (err) {
                 console.error('[' + item.id + '.valueRender]', err);
                 dataObject[item.id] = `err(${err.message})`;
             }
         }
         if (item.external) {
-            let { id, config } = item.external;
+            let {id, config} = item.external;
             appendExternalSection({
                 id: id || item.id,
                 config,
@@ -115,11 +115,11 @@ function crawlForm(sectionId, sectionElement, items) {
     });
     if (sectionElement.nodeType === Node.DOCUMENT_NODE) {
         return dataObject[items[0].id];
-    }
-    else {
+    } else {
         return dataObject;
     }
 }
+
 function crawItem(item, parentElement) {
     var _a, _b, _c;
     let node = null;
@@ -129,26 +129,22 @@ function crawItem(item, parentElement) {
         if (node) {
             if (item.valueProper) {
                 result = node.getAttribute(item.valueProper);
-            }
-            else {
+            } else {
                 result = node.innerText.trim();
             }
         }
-    }
-    else if (item.itemType === 'textBox') {
+    } else if (item.itemType === 'textBox') {
         node = parentElement.querySelector(item.selector);
         if (node) {
             if (node.tagName === 'INPUT' || node.tagName === 'TEXTAREA') {
                 if (item.valueProper) {
                     result = node.getAttribute(item.valueProper);
-                }
-                else {
+                } else {
                     result = node.value.trim();
                 }
             }
         }
-    }
-    else if (item.itemType === 'radioBox') {
+    } else if (item.itemType === 'radioBox') {
         node = parentElement.querySelectorAll(item.selector);
         if (node.length > 0) {
             for (let i = 0, l = node.length; i < l; i++) {
@@ -156,19 +152,16 @@ function crawItem(item, parentElement) {
                 let radioNode;
                 if (elem.tagName === 'INPUT') {
                     radioNode = elem;
-                }
-                else {
+                } else {
                     radioNode = elem.querySelector('input[type=radio]');
                 }
                 if (radioNode === null || radioNode === void 0 ? void 0 : radioNode.checked) {
                     if (elem.tagName === 'INPUT') {
                         result = radioNode.getAttribute((_a = item.valueProper) !== null && _a !== void 0 ? _a : 'value');
-                    }
-                    else {
+                    } else {
                         if (item.valueProper) {
                             result = elem.getAttribute(item.valueProper);
-                        }
-                        else {
+                        } else {
                             result = elem.innerText.trim();
                         }
                     }
@@ -176,8 +169,7 @@ function crawItem(item, parentElement) {
                 }
             }
         }
-    }
-    else if (item.itemType === 'checkBox') {
+    } else if (item.itemType === 'checkBox') {
         node = parentElement.querySelectorAll(item.selector);
         result = [];
         if (node.length > 0) {
@@ -186,41 +178,37 @@ function crawItem(item, parentElement) {
                 let checkNode;
                 if (elem.tagName === 'INPUT') {
                     checkNode = elem;
-                }
-                else {
+                } else {
                     checkNode = elem.querySelector('input[type=checkbox]');
                 }
                 if (checkNode === null || checkNode === void 0 ? void 0 : checkNode.checked) {
                     if (elem.tagName === 'INPUT') {
                         result.push(checkNode.getAttribute((_b = item.valueProper) !== null && _b !== void 0 ? _b : 'value'));
-                    }
-                    else {
+                    } else {
                         if (item.valueProper) {
                             result.push(elem.getAttribute(item.valueProper));
-                        }
-                        else {
+                        } else {
                             result.push(elem.innerText.trim());
                         }
                     }
                 }
             }
         }
-    }
-    else if (item.itemType === 'dropBox') {
+    } else if (item.itemType === 'dropBox') {
         node = parentElement.querySelector(item.selector);
         if (node) {
             let x = node.selectedIndex;
             let opt = node.options[x];
             if (((_c = item.valueProper) === null || _c === void 0 ? void 0 : _c.toLowerCase()) === 'value') {
                 result = opt.value;
-            }
-            else {
+            } else {
                 result = opt.text;
             }
         }
     }
-    return { result, node };
+    return {result, node};
 }
+
 function crawlByConfig(dataSection) {
     let data = {};
     dataSection === null || dataSection === void 0 ? void 0 : dataSection.forEach((secItem) => {
@@ -242,8 +230,7 @@ function crawlByConfig(dataSection) {
                             try {
                                 const renderFunc = new Function('val , i , arr', secItem.filterRender);
                                 crwData = crwData.filter(renderFunc);
-                            }
-                            catch (err) {
+                            } catch (err) {
                                 console.error('[' + secItem.id + '.filterRender]', err);
                                 crwData = [err.message];
                             }
@@ -253,16 +240,16 @@ function crawlByConfig(dataSection) {
                     break;
                 default:
             }
-        }
-        else if ('itemType' in secItem) {
+        } else if ('itemType' in secItem) {
             let crwData = crawlForm('', document, [secItem]);
             data[secItem.id] = crwData;
         }
     });
     return data;
 }
+
 function run(cfg) {
-    let { dataSection, switchSection, downloadSection, downloadRoot } = cfg;
+    let {dataSection, switchSection, downloadSection, downloadRoot} = cfg;
     let result = {
         data: {},
     };
@@ -285,8 +272,7 @@ function run(cfg) {
                 return template.replace(pattern, function (match, key) {
                     try {
                         return eval('(json.' + key + ')');
-                    }
-                    catch (e) {
+                    } catch (e) {
                         return null;
                     }
                 });
@@ -318,26 +304,23 @@ function run(cfg) {
                             }
                             let render = renders[dn.id];
                             let res = render.call(dn, fileName, elem);
-                            if (res !== undefined) {
-                                fileName = res;
+                            if (res) {
+                                fileName = res.toString();
                             }
-                        }
-                        catch (err) {
+                        } catch (err) {
                             console.error(dn.id + '-node[' + i + '.nameRender]', err);
-                            fileName = '';
+                            fileName = err.message;
                         }
                     }
                     fileNames.push(fileName);
                     if (dn.type === 'url') {
                         if (elem.tagName === 'A') {
                             links.push(elem.href);
-                        }
-                        else {
+                        } else {
                             links.push('');
                         }
                     }
-                }
-                else {
+                } else {
                     result.downloads[dn.id].count--;
                 }
             });

@@ -46,6 +46,7 @@ type IDownloadConfig struct {
 	IConfigNode
 	SavePath   string       `json:"savePath,omitempty"`
 	NameProper string       `json:"nameProper,omitempty"`
+	NameRender string       `json:"nameRender,omitempty"`
 	Type       DownloadType `json:"type"`
 }
 

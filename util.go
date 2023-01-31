@@ -7,6 +7,9 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
 	"os"
+	"path"
+	"path/filepath"
+	"regexp"
 	"sort"
 	"time"
 )
@@ -152,6 +155,63 @@ func WriteSortedJSONToFile(data interface{}, filename string) error {
 
 	// write the json to a file
 	return os.WriteFile(filename, sortedJson, 0644)
+}
+
+// RenameFileUnique rename file name if there are duplicate files
+func RenameFileUnique(dir, fileName, ext string, try int) string {
+	var rawFileName string
+	if try == 0 {
+		rawFileName = path.Join(dir, fmt.Sprintf("%s%s", fileName, ext))
+	} else {
+		rawFileName = path.Join(dir, fmt.Sprintf("%s_%d%s", fileName, try, ext))
+	}
+
+	if exists, _ := FileExists(rawFileName); exists {
+		return RenameFileUnique(dir, fileName, ext, try+1)
+	}
+
+	return rawFileName
+}
+
+// FileExists to check if a file exists
+func FileExists(name string) (bool, error) {
+	_, err := os.Stat(name)
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	return false, err
+}
+
+// RemoveContents will delete all the contents of a directory
+func RemoveContents(dir string) error {
+	d, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+	names, err := d.Readdirnames(-1)
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		err = os.RemoveAll(filepath.Join(dir, name))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+var exp = regexp.MustCompile(`([<>:"/\\\|?*]+)`)
+
+// NormalizeFilename will replace <>:"/\|?* in string
+func NormalizeFilename(name string) string {
+	outName := exp.ReplaceAllString(name, "_")
+	//println(name, outName)
+	return outName
 }
 
 // import "github.com/AllenDang/w32"

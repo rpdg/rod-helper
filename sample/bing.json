@@ -1,0 +1,36 @@
+{
+  "dataSection": [
+    {
+      "label": "Bing Search Results",
+      "id": "linkList",
+      "selector": "#b_results > .b_algo > .b_title > h2",
+      "sectionType": "list",
+      "items": [
+        {
+          "label": "page link",
+          "id": "url",
+          "selector": "a",
+          "itemType": "text",
+          "valueProper": "href"
+        },
+        {
+          "label": "page title",
+          "id": "title",
+          "selector": "a",
+          "itemType": "text"
+        }
+      ]
+    }
+  ],
+  "downloadRoot": "c:\\attachment2",
+  "downloadSection": [
+    {
+      "selector": "#b_results > .b_algo > .b_title > .sb_doct_txt + h2 > a",
+      "label": "PDF File",
+      "id": "pdf_files",
+      "nameProper": "href",
+      "nameRender": "let parts = name.split('/'); console.log(parts[parts.length - 1]); return parts[parts.length - 1];",
+      "type": "url"
+    }
+  ]
+}
