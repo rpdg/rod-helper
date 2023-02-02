@@ -19,16 +19,20 @@ func OpenPage(browser *rod.Browser, url string, sleep int64, selector string, si
 	if err != nil {
 		return nil, err
 	}
+	return page, WaitPage(page, sleep, selector, sign)
+}
 
+func WaitPage(page *rod.Page, sleep int64, selector string, sign WaitSign) (err error) {
 	err = page.WaitLoad()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if selector != "" {
-		if sign == WaitShow {
+		switch sign {
+		case WaitShow:
 			err = WaitElementShow(page, selector, 20)
-		} else if sign == WaitHide {
+		case WaitHide:
 			err = WaitElementHide(page, selector, 20)
 		}
 	}

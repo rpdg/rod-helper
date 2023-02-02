@@ -8,6 +8,7 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
 	"github.com/go-rod/rod/lib/launcher"
+	"github.com/go-rod/rod/lib/proto"
 	"github.com/go-rod/rod/lib/utils"
 	"net/url"
 	"os"
@@ -23,13 +24,13 @@ const (
 	WaitDelay WaitSign = "wait"
 )
 
-type IPageLoad struct {
+type PageLoad struct {
 	Wait     WaitSign `json:"wait"`
 	Selector string   `json:"selector,omitempty"`
 	Sleep    int64    `json:"sleep,omitempty"`
 }
 
-type IConfigNode struct {
+type ConfigNode struct {
 	Selector string `json:"selector"`
 	Label    string `json:"label"`
 	ID       string `json:"id"`
@@ -42,80 +43,64 @@ const (
 	DownloadElement DownloadType = "element"
 )
 
-type IDownloadConfig struct {
-	IConfigNode
+type DownloadConfig struct {
+	ConfigNode
 	SavePath   string       `json:"savePath,omitempty"`
 	NameProper string       `json:"nameProper,omitempty"`
 	NameRender string       `json:"nameRender,omitempty"`
 	Type       DownloadType `json:"type"`
 }
 
-type IConfig struct {
-	PageLoad        IPageLoad                `json:"pageLoad,omitempty"`
+type CrawlerConfig struct {
+	PageLoad        PageLoad                 `json:"pageLoad,omitempty"`
 	DataSection     []map[string]interface{} `json:"dataSection"`
 	SwitchSection   map[string]interface{}   `json:"switchSection,omitempty"`
 	DownloadRoot    string                   `json:"downloadRoot,omitempty"`
-	DownloadSection []IDownloadConfig        `json:"downloadSection,omitempty"`
+	DownloadSection []DownloadConfig         `json:"downloadSection,omitempty"`
 }
 
-// IDownloadResult is a part of result section
-type IDownloadResult struct {
+// DownloadResult is a part of result section
+type DownloadResult struct {
 	Count     int      `json:"count"`
 	Errors    []int    `json:"errors"`
 	FileNames []string `json:"fileNames"`
 	Links     []string `json:"links"`
 }
 
-type IExternalResult struct {
+type ExternalResult struct {
 	Config  string `json:"config"`
 	Connect string `json:"connect"`
 	ID      string `json:"id"`
 }
 
-type IResult struct {
-	Data            map[string]interface{}     `json:"data"`
-	DownloadRoot    string                     `json:"downloadRoot"`
-	Downloads       map[string]IDownloadResult `json:"downloads"`
-	ExternalSection map[string]IExternalResult `json:"externalSection"`
+type Result struct {
+	Data            map[string]interface{}    `json:"data"`
+	DownloadRoot    string                    `json:"downloadRoot"`
+	Downloads       map[string]DownloadResult `json:"downloads"`
+	ExternalSection map[string]ExternalResult `json:"externalSection"`
 }
 
 type Crawler struct {
 	Browser    *rod.Browser
-	CfgFetcher func(path string) (*IConfig, error)
+	CfgFetcher func(path string) (*CrawlerConfig, error)
 }
 
-func (c *Crawler) CrawlUrl(url string, cfgOrFile interface{}, autoDownload bool, closeTab bool) (*IResult, *rod.Page, error) {
-	var cfg *IConfig
+func (c *Crawler) CrawlUrl(url string, cfgOrFile interface{}, autoDownload bool, closeTab bool) (*Result, *rod.Page, error) {
 	var err error
-	cfgFilePath := ""
-	switch cfgOrFile.(type) {
-	case string:
-		cfgFilePath = cfgOrFile.(string)
-		cfg, err = c.fetchCfg(cfgFilePath)
-		if err != nil {
-			return nil, nil, err
-		}
-	case *IConfig:
-		cfg = cfgOrFile.(*IConfig)
-	default:
-		return nil, nil, errors.New("unknown config data")
-	}
 
-	wait := cfg.PageLoad.Wait
-	selector := cfg.PageLoad.Selector
-	delay := cfg.PageLoad.Sleep
-
-	page, err := OpenPage(c.Browser, url, delay, selector, wait)
+	page, err := c.Browser.Page(proto.TargetCreateTarget{URL: url})
 	if err != nil {
 		return nil, nil, err
 	}
-	res, err := c.CrawlPage(page, cfg, autoDownload, closeTab)
+
+	res, err := c.CrawlPage(page, cfgOrFile, autoDownload, closeTab)
 	return res, page, err
 }
 
-func (c *Crawler) CrawlPage(page *rod.Page, cfgOrFile interface{}, autoDownload bool, closeTab bool) (*IResult, error) {
-	var cfg *IConfig
+func (c *Crawler) CrawlPage(page *rod.Page, cfgOrFile interface{}, autoDownload bool, closeTab bool) (*Result, error) {
+	var cfg *CrawlerConfig
 	var err error
+
 	cfgFilePath := ""
 	switch cfgOrFile.(type) {
 	case string:
@@ -124,11 +109,20 @@ func (c *Crawler) CrawlPage(page *rod.Page, cfgOrFile interface{}, autoDownload 
 		if err != nil {
 			return nil, err
 		}
-	case *IConfig:
-		cfg = cfgOrFile.(*IConfig)
+	case *CrawlerConfig:
+		cfg = cfgOrFile.(*CrawlerConfig)
 	default:
 		return nil, errors.New("unknown config data")
 	}
+
+	wait := cfg.PageLoad.Wait
+	selector := cfg.PageLoad.Selector
+	delay := cfg.PageLoad.Sleep
+	err = WaitPage(page, delay, selector, wait)
+	if err != nil {
+		return nil, err
+	}
+
 	jsCode := fmt.Sprintf(`
 	(cfg)=>{
 		%s;
@@ -140,7 +134,7 @@ func (c *Crawler) CrawlPage(page *rod.Page, cfgOrFile interface{}, autoDownload 
 		return nil, err
 	}
 
-	var result IResult
+	var result Result
 	err = resultJson.Value.Unmarshal(&result)
 	if err != nil {
 		return nil, err
@@ -204,7 +198,7 @@ func (c *Crawler) processExtUrl(extCfg string, extNode map[string]interface{}, i
 	if extUrl != "" {
 		extData, _, err2 := c.CrawlUrl(extUrl, extCfg, autoDownload, closeTab)
 		if err2 != nil {
-			extNode[itemName] = fmt.Sprintf("an error occurred when crawling the external url: %s", extUrl)
+			extNode[itemName] = fmt.Sprintf("an error occurred when crawling the external url: %s", err2)
 		} else {
 			extNode[itemName] = extData.Data
 		}
@@ -217,7 +211,7 @@ func (c *Crawler) AttachDefaultBrowser() *rod.Browser {
 	return c.Browser
 }
 
-func (c *Crawler) download(page *rod.Page, dlCfg IDownloadConfig, dlData *IDownloadResult, downloadRoot string) error {
+func (c *Crawler) download(page *rod.Page, dlCfg DownloadConfig, dlData *DownloadResult, downloadRoot string) error {
 	selector := dlCfg.Selector
 	downType := dlCfg.Type
 
@@ -258,7 +252,7 @@ func (c *Crawler) download(page *rod.Page, dlCfg IDownloadConfig, dlData *IDownl
 	return nil
 }
 
-func (c *Crawler) fetchCfg(cfgPath string) (*IConfig, error) {
+func (c *Crawler) fetchCfg(cfgPath string) (*CrawlerConfig, error) {
 	if c.CfgFetcher != nil {
 		cfg, err := c.CfgFetcher(cfgPath)
 		if err != nil {
@@ -272,13 +266,13 @@ func (c *Crawler) fetchCfg(cfgPath string) (*IConfig, error) {
 	}
 }
 
-func innerFetcher(cfgFilePath string) (*IConfig, error) {
+func innerFetcher(cfgFilePath string) (*CrawlerConfig, error) {
 	cfgJsonStr, err := os.ReadFile(cfgFilePath)
 	if err != nil {
 		fmt.Println("Error reading config file:", err)
 		return nil, err
 	}
-	var cfg IConfig
+	var cfg CrawlerConfig
 	err = json.Unmarshal(cfgJsonStr, &cfg)
 	if err != nil {
 		return nil, err

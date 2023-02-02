@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestCrawler_CrawlUrl(t *testing.T) {
+func Test_CrawlUrl(t *testing.T) {
 	t.Run("crawl bing.com and download PDF files", func(t *testing.T) {
 		testUrl := "https://cn.bing.com/search?q=sample+simple+pdf"
 		r := Crawler{}
