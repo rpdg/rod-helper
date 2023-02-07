@@ -240,6 +240,20 @@ function crawlByConfig(dataSection) {
                     break;
                 default:
             }
+            if (secItem.dataRender && secItem.id in data) {
+                try {
+                    let val = data[secItem.id];
+                    let render = new Function('val, node', secItem.dataRender);
+                    let res = render.call(secItem, val);
+                    if (res !== undefined) {
+                        data[secItem.id] = res;
+                    }
+                }
+                catch (err) {
+                    console.error('[' + secItem.id + '.valueRender]', err);
+                    data[secItem.id] = `err(${err.message})`;
+                }
+            }
         } else if ('itemType' in secItem) {
             let crwData = crawlForm('', document, [secItem]);
             data[secItem.id] = crwData;

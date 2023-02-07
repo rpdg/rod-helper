@@ -211,6 +211,23 @@ func (c *Crawler) AttachDefaultBrowser() *rod.Browser {
 	return c.Browser
 }
 
+func (c *Crawler) AttachEdgedIE() *rod.Browser {
+	path := "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
+	u := launcher.New().Bin(path).
+		Set("--ie-mode-force").
+		Set("--internet-explorer-integration", "iemode").
+		Set("--no-service-autorun").
+		Set("--disable-sync").
+		Set("--disable-features", "msImplicitSignin").
+		//Delete("--remote-debugging-port").
+		UserDataDir("C:\\Users\\administrator\\AppData\\Local\\Microsoft\\Edge\\User Data").
+		Headless(false).
+		MustLaunch()
+	c.Browser = rod.New().ControlURL(u).MustConnect()
+
+	return c.Browser
+}
+
 func (c *Crawler) download(page *rod.Page, dlCfg DownloadConfig, dlData *DownloadResult, downloadRoot string) error {
 	selector := dlCfg.Selector
 	downType := dlCfg.Type

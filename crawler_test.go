@@ -11,7 +11,7 @@ func Test_CrawlUrl(t *testing.T) {
 		testUrl := "https://cn.bing.com/search?q=sample+simple+pdf"
 		r := Crawler{}
 		r.AttachDefaultBrowser()
-		val, _, err := r.CrawlUrl(testUrl, "./sample/bing.json", true, true)
+		val, _, err := r.CrawlUrl(testUrl, "./sample/bing.json", false, true)
 		if err != nil {
 			t.Errorf("crawler failed: %v", err)
 		} else {
