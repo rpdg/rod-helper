@@ -32,7 +32,7 @@ func Test_K2(t *testing.T) {
 		url2 := "https://flowcenter.opg.cn/Portal/ProcessCenter/MyFlowList"
 		c := Crawler{}
 		c.AttachDefaultBrowser()
-		val, _, err := c.CrawlUrl(url2, "./sample/k2_list.json", true, true)
+		val, _, err := c.CrawlUrl(url2, "./sample/k2_list.json", false, true)
 		if err != nil {
 			t.Errorf("%v", err)
 		} else {
