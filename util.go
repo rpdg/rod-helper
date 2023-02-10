@@ -19,11 +19,17 @@ func OpenPage(browser *rod.Browser, url string, sleep int64, selector string, si
 	if err != nil {
 		return nil, err
 	}
-	return page, WaitPage(page, sleep, selector, sign)
+	err = WaitPage(page, sleep, selector, sign)
+	return page, err
 }
 
 func WaitPage(page *rod.Page, sleep int64, selector string, sign WaitSign) (err error) {
 	err = page.WaitLoad()
+	if err != nil {
+		return err
+	}
+
+	err = page.WaitIdle(time.Second * 30)
 	if err != nil {
 		return err
 	}
