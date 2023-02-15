@@ -58,6 +58,18 @@ func WaitElementHide(page *rod.Page, selector string, timeoutSeconds int) (err e
 	v := true
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				switch x := r.(type) {
+				case string:
+					err = errors.New(x)
+				case error:
+					err = x
+				default:
+					err = errors.New("unknown panic")
+				}
+			}
+		}()
 		for {
 			v = ElementVisible(page, selector)
 			if !p && !v {
@@ -88,6 +100,18 @@ func WaitElementShow(page *rod.Page, selector string, timeoutSeconds int) (err e
 	p := false
 	v := false
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				switch x := r.(type) {
+				case string:
+					err = errors.New(x)
+				case error:
+					err = x
+				default:
+					err = errors.New("unknown panic")
+				}
+			}
+		}()
 		for {
 			v = ElementVisible(page, selector)
 			if p && v {
