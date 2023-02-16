@@ -1,3 +1,4 @@
+"use strict";
 function assignDeep(target, ...sources) {
     if (target == null) {
         throw new TypeError('Cannot convert undefined or null to object');
@@ -52,7 +53,7 @@ function crawlList(sectionId, sectionElements, items) {
     let renders = {};
     sectionElements.forEach((tableRow) => {
         let data = {};
-        items.forEach((item, i) => {
+        items.forEach((item) => {
             let { result, node } = crawItem(item, tableRow);
             data[item.id] = result;
             if (item.valueRender) {
