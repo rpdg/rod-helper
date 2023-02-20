@@ -206,14 +206,14 @@ func (c *Crawler) processExtUrl(extCfg string, extNode map[string]interface{}, i
 }
 
 func (c *Crawler) AttachDefaultBrowser() *rod.Browser {
-	wsURL := launcher.NewUserMode().MustLaunch()
+	wsURL := launcher.NewUserMode().Leakless(false).MustLaunch()
 	c.Browser = rod.New().ControlURL(wsURL).MustConnect().NoDefaultDevice()
 	return c.Browser
 }
 
 func (c *Crawler) AttachEdgedIE() *rod.Browser {
 	path := "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
-	u := launcher.New().Bin(path).
+	u := launcher.New().Leakless(false).Bin(path).
 		Set("--ie-mode-force").
 		Set("--internet-explorer-integration", "iemode").
 		Set("--no-service-autorun").
