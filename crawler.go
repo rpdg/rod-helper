@@ -220,7 +220,7 @@ func (c *Crawler) AttachEdgedIE() *rod.Browser {
 		Set("--disable-sync").
 		Set("--disable-features", "msImplicitSignin").
 		//Delete("--remote-debugging-port").
-		UserDataDir("C:\\Users\\administrator\\AppData\\Local\\Microsoft\\Edge\\User Data").
+		//UserDataDir("C:\\Users\\administrator\\AppData\\Local\\Microsoft\\Edge\\User Data").
 		Headless(false).
 		MustLaunch()
 	c.Browser = rod.New().ControlURL(u).MustConnect()
