@@ -211,6 +211,16 @@ func (c *Crawler) AttachDefaultBrowser() *rod.Browser {
 	return c.Browser
 }
 
+func (c *Crawler) AttachChromeBrowser() *rod.Browser {
+	chrome, found := launcher.LookPath()
+	if !found {
+		panic("not found")
+	}
+	l := launcher.New().Bin(chrome).Leakless(true).Headless(true)
+	c.Browser = rod.New().ControlURL(l.MustLaunch()).MustConnect()
+	return c.Browser
+}
+
 func (c *Crawler) AttachEdgedIE() *rod.Browser {
 	path := "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
 	u := launcher.New().Leakless(false).Bin(path).
