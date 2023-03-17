@@ -5,7 +5,7 @@ export interface IConfig {
 	/**
 	 * 数据配置的根节点，是数据配置段与数据节点的联合数组
 	 */
-	dataSection: (DataSection | ValueItem)[];
+	dataSection: (IDataSection | IValueItem)[];
 
 	/**
 	 * 分支流程的配置节点，将在根dataSection执行完后，根据switch的结果执行对应分支
@@ -66,7 +66,7 @@ export interface IConfigNode {
 /**
  * 数据配置段
  */
-export interface DataSection extends IConfigNode {
+export interface IDataSection extends IConfigNode {
 	/**
 	 * 枚举
 	 */
@@ -75,7 +75,7 @@ export interface DataSection extends IConfigNode {
 	/**
 	 * 节点组
 	 */
-	items: ValueItem[];
+	items: IValueItem[];
 
 	/***
 	 * Javascript function String，用来对List Section 的结果进行过滤，可选。
@@ -102,7 +102,7 @@ export interface DataSection extends IConfigNode {
 /**
  * 数据节点
  */
-export interface ValueItem extends IConfigNode {
+export interface IValueItem extends IConfigNode {
 	/**
 	 * 枚举
 	 */
@@ -133,7 +133,7 @@ export interface ValueItem extends IConfigNode {
 		config: string | IConfig;
 
 		/**
-		 * 将作为结果的 key 输出，可选，如果不设则会使用所在ValueItem节点的id
+		 * 将作为结果的 key 输出，可选，如果不设则会使用所在IValueItem节点的id
 		 */
 		id?: string;
 	};
@@ -162,7 +162,7 @@ export interface CaseItem {
 	 * 匹配结果的case将会执行
 	 */
 	case: string | number | boolean | null | undefined | string[] | number[];
-	dataSection: (DataSection | ValueItem)[];
+	dataSection: (IDataSection | IValueItem)[];
 }
 
 /**

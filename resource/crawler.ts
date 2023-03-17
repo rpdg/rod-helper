@@ -1,8 +1,8 @@
-type DataSection = import('./types').DataSection;
+type IDataSection = import('./types').IDataSection;
 type IConfig = import('./types').IConfig;
 type IExternal = import('./types').IExternal;
 type IResult = import('./types').IResult;
-type ValueItem = import('./types').ValueItem;
+type IValueItem = import('./types').IValueItem;
 
 function assignDeep(
 	target: any,
@@ -73,7 +73,7 @@ function appendExternalSection(extObj: IExternal) {
 	}
 }
 
-function crawlList(sectionId: string, sectionElements: Element[], items: ValueItem[]) {
+function crawlList(sectionId: string, sectionElements: Element[], items: IValueItem[]) {
 	let dataArray: any[] = [];
 	let renders: Record<string, Function> = {};
 
@@ -114,7 +114,7 @@ function crawlList(sectionId: string, sectionElements: Element[], items: ValueIt
 	return dataArray;
 }
 
-function crawlForm(sectionId: string, sectionElement: Element | Document, items: ValueItem[]) {
+function crawlForm(sectionId: string, sectionElement: Element | Document, items: IValueItem[]) {
 	let dataObject: any = {};
 	items.forEach((item) => {
 		let { result, node } = crawItem(item, sectionElement);
@@ -152,7 +152,7 @@ function crawlForm(sectionId: string, sectionElement: Element | Document, items:
 	}
 }
 
-function crawItem(item: ValueItem, parentElement: Element | Document) {
+function crawItem(item: IValueItem, parentElement: Element | Document) {
 	let node: Element | NodeListOf<Element> | null = null;
 	let result: string | (string | null)[] | null = null;
 
@@ -244,7 +244,7 @@ function crawItem(item: ValueItem, parentElement: Element | Document) {
 	return { result, node };
 }
 
-function crawlByConfig(dataSection: (ValueItem | DataSection)[]) {
+function crawlByConfig(dataSection: (IValueItem | IDataSection)[]) {
 	let data: Record<string, any> = {};
 	dataSection?.forEach((secItem) => {
 		// is Section
