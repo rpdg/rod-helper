@@ -10,12 +10,12 @@ export interface IConfig {
 	/**
 	 * 分支流程的配置节点，将在根dataSection执行完后，根据switch的结果执行对应分支
 	 */
-	switchSection?: SwitchSection;
+	switchSection?: ISwitchSection;
 
 	/**
 	 * 下载配置的根节点，下载配置段的数组
 	 */
-	downloadSection?: DownloadSection[];
+	downloadSection?: IDownloadSection[];
 
 	/**
 	 * 下载保存的根文件夹，注意可写权限
@@ -142,7 +142,7 @@ export interface IValueItem extends IConfigNode {
 /**
  * 分支流程的配置节点
  */
-export interface SwitchSection {
+export interface ISwitchSection {
 	/**
 	 * Javascript function String，用来对结果进行转换，可选。
 	 *
@@ -151,13 +151,13 @@ export interface SwitchSection {
 	 * 例： "return data.barCode.startsWith(('SN')" 即返回barCode是否以SN开头的bool
 	 */
 	switchRender: string;
-	cases: CaseItem[];
+	cases: ICaseItem[];
 }
 
 /**
  * 分支流程的Case配置
  */
-export interface CaseItem {
+export interface ICaseItem {
 	/**
 	 * 匹配结果的case将会执行
 	 */
@@ -168,7 +168,7 @@ export interface CaseItem {
 /**
  * 下载配置段
  */
-export interface DownloadSection extends IConfigNode {
+export interface IDownloadSection extends IConfigNode {
 	/**
 	 * 保存文件夹子目录（downloadRoot的相对路径），如果空则取 id 为子目录名
 	 */
