@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"sync"
 	"time"
 )
 
@@ -52,6 +53,7 @@ func WaitPage(page *rod.Page, sleep int64, selector string, sign WaitSign) (err 
 
 // WaitElementHide waiting for a certain element on the page to disappear
 func WaitElementHide(page *rod.Page, selector string, timeoutSeconds int) (err error) {
+	var mu sync.Mutex
 	done := make(chan struct{}, 1)
 	timeout := time.After(time.Second * time.Duration(timeoutSeconds))
 	p := true
@@ -71,14 +73,17 @@ func WaitElementHide(page *rod.Page, selector string, timeoutSeconds int) (err e
 			}
 		}()
 		for {
+			mu.Lock()
 			v = ElementVisible(page, selector)
 			if !p && !v {
+				mu.Unlock()
 				break
 			}
 			if v != p {
 				p = v
 			}
-			time.Sleep(time.Second)
+			mu.Unlock()
+			time.Sleep(time.Millisecond * 200)
 		}
 		done <- struct{}{}
 	}()
@@ -95,6 +100,7 @@ func WaitElementHide(page *rod.Page, selector string, timeoutSeconds int) (err e
 
 // WaitElementShow waiting for a certain element on the page to appear
 func WaitElementShow(page *rod.Page, selector string, timeoutSeconds int) (err error) {
+	var mu sync.Mutex
 	done := make(chan struct{}, 1)
 	timeout := time.After(time.Second * time.Duration(timeoutSeconds))
 	p := false
@@ -113,14 +119,17 @@ func WaitElementShow(page *rod.Page, selector string, timeoutSeconds int) (err e
 			}
 		}()
 		for {
+			mu.Lock()
 			v = ElementVisible(page, selector)
 			if p && v {
+				mu.Unlock()
 				break
 			}
 			if v != p {
 				p = v
 			}
-			time.Sleep(time.Second)
+			mu.Unlock()
+			time.Sleep(time.Millisecond * 200)
 		}
 		done <- struct{}{}
 	}()
