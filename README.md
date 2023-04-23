@@ -27,3 +27,20 @@ func main() {
 }
 ```
 
+
+
+# Custom Pseudo class
+
+1. select element under iframe / frame:
+
+    ```css
+    :frame( iframe_tag_selector ) inner_element_selector
+    ```
+
+2. select element under shadow-dom
+
+	```css
+	:shadow(web_component_selector) inner_element_selector
+	```
+	
+	

@@ -41,6 +41,65 @@ function assignDeep(target, ...sources) {
     delete result['__hash__'];
     return result;
 }
+function findBracketSubstring(str) {
+    let leftCount = 0;
+    let leftStartIndex = -1;
+    let result = '';
+    if (str.indexOf('(') === -1 || str.length === 0) {
+        return result;
+    }
+    for (let i = 0; i < str.length; i++) {
+        if (str[i] === '(') {
+            leftCount++;
+            if (leftStartIndex === -1) {
+                leftStartIndex = i;
+            }
+        }
+        else if (str[i] === ')') {
+            leftCount--;
+            if (leftCount === 0) {
+                result = str.substring(leftStartIndex + 1, i);
+                break;
+            }
+        }
+    }
+    if (leftCount > 0) {
+        throw new Error('Unbalanced brackets');
+    }
+    return result;
+}
+function replacePseudo(selector, parentElement = document) {
+    let doc = parentElement;
+    if (selector.startsWith(':frame(')) {
+        let iframeSelector = findBracketSubstring(selector);
+        let iframeElem = parentElement.querySelector(iframeSelector);
+        if (iframeElem !== null) {
+            doc = iframeElem === null || iframeElem === void 0 ? void 0 : iframeElem.contentWindow.document;
+            selector = selector.substring(8 + iframeSelector.length + 1);
+        }
+    }
+    else if (selector.startsWith(':shadow(')) {
+        let slotSelector = findBracketSubstring(selector);
+        let slotElem = parentElement.querySelector(slotSelector);
+        if (slotElem !== null) {
+            doc = slotElem.shadowRoot;
+            selector = selector.substring(9 + slotSelector.length + 1);
+        }
+    }
+    return { doc, selector };
+}
+function queryElem(selectorString, parentElement) {
+    let secNode = null;
+    let { doc, selector } = replacePseudo(selectorString, parentElement);
+    secNode = doc.querySelector(selector);
+    return secNode;
+}
+function queryElems(selectorString, parentElement) {
+    let secNodes = [];
+    let { doc, selector } = replacePseudo(selectorString, parentElement);
+    secNodes = Array.from(doc.querySelectorAll(selector));
+    return secNodes;
+}
 const externalDict = {};
 function appendExternalSection(extObj) {
     let key = extObj.connect;
@@ -51,10 +110,10 @@ function appendExternalSection(extObj) {
 function crawlList(sectionId, sectionElements, items) {
     let dataArray = [];
     let renders = {};
-    sectionElements.forEach((tableRow) => {
+    sectionElements.forEach((element) => {
         let data = {};
         items.forEach((item) => {
-            let { result, node } = crawItem(item, tableRow);
+            let { result, node } = crawItem(item, element);
             data[item.id] = result;
             if (item.valueRender) {
                 try {
@@ -121,12 +180,12 @@ function crawlForm(sectionId, sectionElement, items) {
         return dataObject;
     }
 }
-function crawItem(item, parentElement) {
+function crawItem(item, parentElement = document) {
     var _a, _b, _c;
     let node = null;
     let result = null;
     if (item.itemType === 'text') {
-        node = parentElement.querySelector(item.selector);
+        node = queryElem(item.selector, parentElement);
         if (node) {
             if (item.valueProper) {
                 result = node.getAttribute(item.valueProper);
@@ -137,7 +196,7 @@ function crawItem(item, parentElement) {
         }
     }
     else if (item.itemType === 'textBox') {
-        node = parentElement.querySelector(item.selector);
+        node = queryElem(item.selector, parentElement);
         if (node) {
             if (node.tagName === 'INPUT' || node.tagName === 'TEXTAREA') {
                 if (item.valueProper) {
@@ -150,7 +209,7 @@ function crawItem(item, parentElement) {
         }
     }
     else if (item.itemType === 'radioBox') {
-        node = parentElement.querySelectorAll(item.selector);
+        node = queryElems(item.selector, parentElement);
         if (node.length > 0) {
             for (let i = 0, l = node.length; i < l; i++) {
                 let elem = node[i];
@@ -179,7 +238,7 @@ function crawItem(item, parentElement) {
         }
     }
     else if (item.itemType === 'checkBox') {
-        node = parentElement.querySelectorAll(item.selector);
+        node = queryElems(item.selector, parentElement);
         result = [];
         if (node.length > 0) {
             for (let i = 0, l = node.length; i < l; i++) {
@@ -208,7 +267,7 @@ function crawItem(item, parentElement) {
         }
     }
     else if (item.itemType === 'dropBox') {
-        node = parentElement.querySelector(item.selector);
+        node = queryElem(item.selector, parentElement);
         if (node) {
             let x = node.selectedIndex;
             let opt = node.options[x];
@@ -230,14 +289,14 @@ function crawlByConfig(dataSection) {
             let secNode = null;
             switch (secItem.sectionType) {
                 case 'form':
-                    secNode = document.querySelector(secItem.selector);
+                    secNode = queryElem(secItem.selector, document);
                     if (secNode) {
                         let crwData = crawlForm(secItem.id, secNode, secItem.items);
                         data[secItem.id] = assignDeep((_a = data[secItem.id]) !== null && _a !== void 0 ? _a : {}, crwData);
                     }
                     break;
                 case 'list':
-                    secNode = Array.from(document.querySelectorAll(secItem.selector));
+                    secNode = queryElems(secItem.selector, document);
                     if (secNode.length) {
                         let crwData = crawlList(secItem.id, secNode, secItem.items);
                         if (secItem.filterRender) {
@@ -314,7 +373,7 @@ function run(cfg) {
         result.downloads = {};
         let renders = {};
         downloadSection === null || downloadSection === void 0 ? void 0 : downloadSection.forEach((dn) => {
-            let elems = document.querySelectorAll(dn.selector);
+            let elems = queryElems(dn.selector, document);
             let count = elems.length;
             result.downloads[dn.id] = {
                 count,

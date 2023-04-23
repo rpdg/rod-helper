@@ -1,0 +1,69 @@
+{
+  "pageLoad": {
+    "wait": "wait",
+    "selector": "",
+    "sleep": 3
+  },
+  "dataSection": [
+    {
+      "selector": "#app > div > div.nc-workbench-top-container.nccwb-top.height-44 > nav > div.nav-left.n-left.n-v-middle > div > div.compose-container > div.workbench-breadcrumb > .ant-breadcrumb > span",
+      "label": "节点信息",
+      "id": "processInfo",
+      "sectionType": "list",
+      "items": [
+        {
+          "selector": ".ant-breadcrumb-link",
+          "label": "流程名称",
+          "id": "workflowName",
+          "itemType": "text"
+        }
+      ]
+    },
+    {
+      "selector": "body",
+      "label": "test",
+      "id": "test",
+      "sectionType": "form",
+      "items": [
+        {
+          "selector": "#app > div > div.nc-workbench-top-container.nccwb-top.height-44 > nav > div.nav-right.n-right.n-v-middle > div > div:nth-child(3) > div > div.u-form-control-wrapper.nc_DatePickClientHourTime.nc-workbench-businessdate-dropdown > div > div > div > div > div > span > input",
+          "label": "b-date",
+          "id": "byDate",
+          "itemType": "textBox"
+        },
+        {
+          "selector": ":frame(#mainiframe) #head > div > span:nth-child(1) > div.code.js-type-input.form-item > div.form-item-control > div > span",
+          "label": "编码",
+          "id": "codec",
+          "itemType": "text"
+        }
+      ]
+    },
+    {
+      "selector": ":frame(#mainiframe) #head > div > span:nth-child(8) > div.pk_fathergroup.js-type-refer.form-item > div.form-item-control > div > span",
+      "label": "上级集团",
+      "id": "parentGroup",
+      "itemType": "text"
+    },
+    {
+      "selector": ":frame(#mainiframe) body",
+      "label": "test-iframe",
+      "id": "testIframe",
+      "sectionType": "form",
+      "items": [
+        {
+          "selector": "#head > div > span:nth-child(14) > div.createdate.js-type-datepicker.form-item > div.form-item-label",
+          "label": "成立时间",
+          "id": "fDate",
+          "itemType": "text"
+        },
+        {
+          "selector": "#head > div > span:nth-child(15) > div.pk_currtype.js-type-refer.form-item > div.form-item-control > div > span",
+          "label": "本位币",
+          "id": "yan",
+          "itemType": "text"
+        }
+      ]
+    }
+  ]
+}
