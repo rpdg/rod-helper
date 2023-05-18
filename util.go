@@ -151,8 +151,10 @@ func ElementVisible(page *rod.Page, selector string) bool {
 		(selector) => {
             try {
                 let elem = document.querySelector(selector);
-                if(elem)
-                    return elem.getBoundingClientRect().height > 0;
+                if(elem){
+					let rect = elem.getBoundingClientRect();
+                    return rect.height > 0 && rect.width > 0;
+				}
                 else
                     return false;
             } catch(e){
