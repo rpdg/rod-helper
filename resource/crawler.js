@@ -42,59 +42,51 @@ function assignDeep(target, ...sources) {
     return result;
 }
 function findBracketSubstring(str) {
-    let leftCount = 0;
-    let leftStartIndex = -1;
-    let result = '';
-    if (str.indexOf('(') === -1 || str.length === 0) {
-        return result;
-    }
+    if (!str || !str.includes('('))
+        return '';
+    let stack = [];
     for (let i = 0; i < str.length; i++) {
         if (str[i] === '(') {
-            leftCount++;
-            if (leftStartIndex === -1) {
-                leftStartIndex = i;
-            }
+            stack.push(i);
         }
         else if (str[i] === ')') {
-            leftCount--;
-            if (leftCount === 0) {
-                result = str.substring(leftStartIndex + 1, i);
-                break;
+            let leftIndex = stack.pop();
+            if (stack.length === 0) {
+                return str.substring(leftIndex + 1, i);
             }
         }
     }
-    if (leftCount > 0) {
-        throw new Error('Unbalanced brackets');
-    }
-    return result;
+    throw new Error('Unbalanced brackets');
 }
 function replacePseudo(selector, parentElement = document) {
     let doc = parentElement;
-    if (selector.startsWith(':frame(')) {
-        let iframeSelector = findBracketSubstring(selector);
-        let iframeElem = parentElement.querySelector(iframeSelector);
-        if (iframeElem !== null) {
-            doc = iframeElem === null || iframeElem === void 0 ? void 0 : iframeElem.contentWindow.document;
-            selector = selector.substring(8 + iframeSelector.length + 1);
+    let ctxChanged = false;
+    let pseudoMatch = selector.match(/^:(frame|shadow)\((.+?)\)/);
+    if (pseudoMatch) {
+        let pseudoType = pseudoMatch[1];
+        let pseudoSelector = pseudoMatch[2];
+        let pseudoElem = parentElement.querySelector(pseudoSelector);
+        if (pseudoElem) {
+            doc =
+                pseudoType === 'frame'
+                    ? pseudoElem.contentWindow.document
+                    : pseudoElem.shadowRoot;
+            selector = selector.slice(pseudoMatch[0].length).trim();
+            ctxChanged = true;
         }
     }
-    else if (selector.startsWith(':shadow(')) {
-        let slotSelector = findBracketSubstring(selector);
-        let slotElem = parentElement.querySelector(slotSelector);
-        if (slotElem !== null) {
-            doc = slotElem.shadowRoot;
-            selector = selector.substring(9 + slotSelector.length + 1);
-        }
+    if (/^:(frame|shadow)\(/.test(selector)) {
+        return replacePseudo(selector, doc);
     }
-    return { doc, selector };
+    return { doc, selector, ctxChanged };
 }
-function queryElem(selectorString, parentElement) {
+function queryElem(selectorString, parentElement = document) {
     let secNode = null;
     let { doc, selector } = replacePseudo(selectorString, parentElement);
     secNode = doc.querySelector(selector);
     return secNode;
 }
-function queryElems(selectorString, parentElement) {
+function queryElems(selectorString, parentElement = document) {
     let secNodes = [];
     let { doc, selector } = replacePseudo(selectorString, parentElement);
     secNodes = Array.from(doc.querySelectorAll(selector));

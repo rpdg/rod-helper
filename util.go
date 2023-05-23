@@ -149,15 +149,60 @@ func WaitElementShow(page *rod.Page, selector string, timeoutSeconds int) (err e
 func ElementVisible(page *rod.Page, selector string) bool {
 	jsCode := fmt.Sprintf(`
 		(selector) => {
-            try {
-                let elem = document.querySelector(selector);
-                if(elem){
-					let rect = elem.getBoundingClientRect();
-                    return rect.height > 0 && rect.width > 0;
+			function findBracketSubstring(str) {
+				if (!str || !str.includes('('))
+					return '';
+				let stack = [];
+				for (let i = 0; i < str.length; i++) {
+					if (str[i] === '(') {
+						stack.push(i);
+					}
+					else if (str[i] === ')') {
+						let leftIndex = stack.pop();
+						if (stack.length === 0) {
+							return str.substring(leftIndex + 1, i);
+						}
+					}
 				}
-                else
+				throw new Error('Unbalanced brackets');
+			}
+			function replacePseudo(selector, parentElement = document) {
+				let doc = parentElement;
+				let ctxChanged = false;
+				let pseudoMatch = selector.match(/^:(frame|shadow)\((.+?)\)/);
+				if (pseudoMatch) {
+					let pseudoType = pseudoMatch[1];
+					let pseudoSelector = pseudoMatch[2];
+					let pseudoElem = parentElement.querySelector(pseudoSelector);
+					if (pseudoElem) {
+						doc =
+							pseudoType === 'frame'
+								? pseudoElem.contentWindow.document
+								: pseudoElem.shadowRoot;
+						selector = selector.slice(pseudoMatch[0].length).trim();
+						ctxChanged = true;
+					}
+				}
+				if (/^:(frame|shadow)\(/.test(selector)) {
+					return replacePseudo(selector, doc);
+				}
+				return { doc, selector, ctxChanged };
+			}
+			function queryElem(selectorString, parentElement = document) {
+				let secNode = null;
+				let { doc, selector } = replacePseudo(selectorString, parentElement);
+				secNode = doc.querySelector(selector);
+				return secNode;
+			}
+            try {
+                let elem = queryElem(selector);
+                if (elem) {
+                    let rect = elem.getBoundingClientRect();
+                    return rect.height > 0 && rect.width > 0;
+                } else {
                     return false;
-            } catch(e){
+				}
+            } catch(e) {
                 return false
             }
     	}`)

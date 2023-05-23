@@ -10,38 +10,30 @@ function assignDeep(
 		[x: string]: any;
 	}[]
 ) {
-	// 1. 参数校验
 	if (target == null) {
 		throw new TypeError('Cannot convert undefined or null to object');
 	}
 
-	// 2. 如果是基本类型数据转为包装对象
 	let result = Object(target);
 
-	// 3. 缓存已拷贝过的对象，解决引用关系丢失问题
 	if (!result['__hash__']) {
 		result['__hash__'] = new WeakMap();
 	}
 	let hash = result['__hash__'];
 
 	sources.forEach((v) => {
-		// 4. 如果是基本类型数据转为对象类型
 		let source = Object(v);
-		// 5. 遍历原对象属性，基本类型则值拷贝，对象类型则递归遍历
 		Reflect.ownKeys(source).forEach((key) => {
-			// 6. 跳过自有的不可枚举的属性
 			if (!Object.getOwnPropertyDescriptor(source, key)!.enumerable) {
 				return;
 			}
 			if (typeof source[key] === 'object' && source[key] !== null) {
-				// 7. 属性的冲突处理和拷贝处理
 				let isPropertyDone = false;
 				if (
 					!result[key] ||
 					!(typeof result[key] === 'object') ||
 					Array.isArray(result[key]) !== Array.isArray(source[key])
 				) {
-					// 当 target 没有该属性，或者属性类型和 source 不一致时，直接整个覆盖
 					if (hash.get(source[key])) {
 						result[key] = hash.get(source[key]);
 						isPropertyDone = true;
@@ -65,58 +57,45 @@ function assignDeep(
 }
 
 function findBracketSubstring(str: string): string {
-	let leftCount = 0;
-	let leftStartIndex = -1;
-	let result = '';
-
-	if (str.indexOf('(') === -1 || str.length === 0) {
-		return result;
-	}
-
+	if (!str || !str.includes('(')) return '';
+	let stack = [];
 	for (let i = 0; i < str.length; i++) {
 		if (str[i] === '(') {
-			leftCount++;
-
-			if (leftStartIndex === -1) {
-				leftStartIndex = i;
-			}
+			stack.push(i);
 		} else if (str[i] === ')') {
-			leftCount--;
-
-			if (leftCount === 0) {
-				result = str.substring(leftStartIndex + 1, i);
-				break;
+			let leftIndex = stack.pop()!;
+			if (stack.length === 0) {
+				return str.substring(leftIndex + 1, i);
 			}
 		}
 	}
-
-	if (leftCount > 0) {
-		throw new Error('Unbalanced brackets');
-	}
-	return result;
+	throw new Error('Unbalanced brackets');
 }
 
 function replacePseudo(
 	selector: string,
 	parentElement: Element | Document | ShadowRoot = document
-): { doc: Element | Document | ShadowRoot; selector: string } {
-	let doc: Element | Document | ShadowRoot = parentElement;
-	if (selector.startsWith(':frame(')) {
-		let iframeSelector = findBracketSubstring(selector);
-		let iframeElem = parentElement.querySelector(iframeSelector);
-		if (iframeElem !== null) {
-			doc = (iframeElem as HTMLIFrameElement)?.contentWindow!.document;
-			selector = selector.substring(8 + iframeSelector.length + 1);
-		}
-	} else if (selector.startsWith(':shadow(')) {
-		let slotSelector = findBracketSubstring(selector);
-		let slotElem = parentElement.querySelector(slotSelector);
-		if (slotElem !== null) {
-			doc = (slotElem as HTMLSlotElement).shadowRoot!;
-			selector = selector.substring(9 + slotSelector.length + 1);
+): { doc: Element | Document | ShadowRoot; selector: string; ctxChanged: boolean } {
+	let doc = parentElement;
+	let ctxChanged = false;
+	let pseudoMatch = selector.match(/^:(frame|shadow)\((.+?)\)/);
+	if (pseudoMatch) {
+		let pseudoType = pseudoMatch[1];
+		let pseudoSelector = pseudoMatch[2];
+		let pseudoElem = parentElement.querySelector(pseudoSelector);
+		if (pseudoElem) {
+			doc =
+				pseudoType === 'frame'
+					? (pseudoElem as HTMLIFrameElement).contentWindow!.document
+					: (pseudoElem as HTMLSlotElement).shadowRoot!;
+			selector = selector.slice(pseudoMatch[0].length).trim();
+			ctxChanged = true;
 		}
 	}
-	return { doc, selector };
+	if (/^:(frame|shadow)\(/.test(selector)) {
+		return replacePseudo(selector, doc);
+	}
+	return { doc, selector, ctxChanged };
 }
 
 function queryElem(selectorString: string, parentElement: Element | Document | ShadowRoot = document): Element | null {
