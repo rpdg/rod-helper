@@ -258,8 +258,8 @@ func FileExists(name string) (bool, error) {
 	return false, err
 }
 
-// RemoveContents will delete all the contents of a directory
-func RemoveContents(dir string) error {
+// EmptyDirectory will delete all the contents of a directory
+func EmptyDirectory(dir string) error {
 	d, err := os.Open(dir)
 	if err != nil {
 		return err
