@@ -50,7 +50,7 @@ func WaitPage(page *rod.Page, sleep int64, selector string, sign WaitSign) (err 
 	return
 }
 
-func RaceShow(page *rod.Page, selectors []string, timeoutSeconds int) (elem *rod.Element, err error) {
+func RaceShow(page *rod.Page, selectors []string, timeoutSeconds int) (index int, elem *rod.Element, err error) {
 	done := make(chan *rod.Element, 1)
 	timeout := time.After(time.Second * time.Duration(timeoutSeconds))
 	go func() {
@@ -66,12 +66,13 @@ func RaceShow(page *rod.Page, selectors []string, timeoutSeconds int) (elem *rod
 				}
 			}
 		}()
-	OUT_LOOP:
+	OutLoop:
 		for {
-			for _, selector := range selectors {
+			for i, selector := range selectors {
 				if ElementVisible(page, selector) {
+					index = i
 					done <- page.MustElement(selector)
-					break OUT_LOOP
+					break OutLoop
 				}
 			}
 			time.Sleep(time.Millisecond * 100)
