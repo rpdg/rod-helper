@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
-	"sync"
 	"time"
 )
 
@@ -51,13 +50,53 @@ func WaitPage(page *rod.Page, sleep int64, selector string, sign WaitSign) (err 
 	return
 }
 
+func RaceShow(page *rod.Page, selectors []string, timeoutSeconds int) (elem *rod.Element, err error) {
+	done := make(chan *rod.Element, 1)
+	timeout := time.After(time.Second * time.Duration(timeoutSeconds))
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				switch x := r.(type) {
+				case string:
+					err = errors.New(x)
+				case error:
+					err = x
+				default:
+					err = errors.New("unknown panic")
+				}
+			}
+		}()
+	OUT_LOOP:
+		for {
+			for _, selector := range selectors {
+				if ElementVisible(page, selector) {
+					done <- page.MustElement(selector)
+					break OUT_LOOP
+				}
+			}
+			time.Sleep(time.Millisecond * 100)
+		}
+	}()
+
+	select {
+	case elem = <-done:
+		break
+	case <-timeout:
+		err = errors.New("wait elements timed out")
+		break
+	}
+	return
+}
+
 // WaitElementHide waiting for a certain element on the page to disappear
 func WaitElementHide(page *rod.Page, selector string, timeoutSeconds int) (err error) {
-	var mu sync.Mutex
+	v := ElementVisible(page, selector)
+	if !v {
+		return
+	}
+	p := true
 	done := make(chan struct{}, 1)
 	timeout := time.After(time.Second * time.Duration(timeoutSeconds))
-	p := true
-	v := true
 
 	go func() {
 		defer func() {
@@ -73,17 +112,14 @@ func WaitElementHide(page *rod.Page, selector string, timeoutSeconds int) (err e
 			}
 		}()
 		for {
-			mu.Lock()
 			v = ElementVisible(page, selector)
 			if !p && !v {
-				mu.Unlock()
 				break
 			}
 			if v != p {
-				p = v
+				p = false
 			}
-			mu.Unlock()
-			time.Sleep(time.Millisecond * 200)
+			time.Sleep(time.Millisecond * 100)
 		}
 		done <- struct{}{}
 	}()
@@ -100,11 +136,13 @@ func WaitElementHide(page *rod.Page, selector string, timeoutSeconds int) (err e
 
 // WaitElementShow waiting for a certain element on the page to appear
 func WaitElementShow(page *rod.Page, selector string, timeoutSeconds int) (err error) {
-	var mu sync.Mutex
+	v := ElementVisible(page, selector)
+	if v {
+		return
+	}
+	p := false
 	done := make(chan struct{}, 1)
 	timeout := time.After(time.Second * time.Duration(timeoutSeconds))
-	p := false
-	v := false
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -119,17 +157,14 @@ func WaitElementShow(page *rod.Page, selector string, timeoutSeconds int) (err e
 			}
 		}()
 		for {
-			mu.Lock()
 			v = ElementVisible(page, selector)
 			if p && v {
-				mu.Unlock()
 				break
 			}
 			if v != p {
-				p = v
+				p = true
 			}
-			mu.Unlock()
-			time.Sleep(time.Millisecond * 200)
+			time.Sleep(time.Millisecond * 100)
 		}
 		done <- struct{}{}
 	}()
@@ -148,47 +183,44 @@ func WaitElementShow(page *rod.Page, selector string, timeoutSeconds int) (err e
 // ElementVisible detects whether the selected element is existed and visible
 func ElementVisible(page *rod.Page, selector string) bool {
 	jsCode := fmt.Sprintf(`
-		(selector) => {
-			function replacePseudo(selector, parentElement = document) {
-				let doc = parentElement;
-				let ctxChanged = false;
-				let pseudoMatch = selector.match(/^:(frame|shadow)\((.+?)\)/);
-				if (pseudoMatch) {
-					let pseudoType = pseudoMatch[1];
-					let pseudoSelector = pseudoMatch[2];
-					let pseudoElem = parentElement.querySelector(pseudoSelector);
-					if (pseudoElem) {
-						doc =
-							pseudoType === 'frame'
-								? pseudoElem.contentWindow.document
-								: pseudoElem.shadowRoot;
-						selector = selector.slice(pseudoMatch[0].length).trim();
-						ctxChanged = true;
-					}
+	(selector) => {
+		function replacePseudo(selector, parentElement = document) {
+			let doc = parentElement;
+			let ctxChanged = false;
+			let pseudoMatch = selector.match(/^:(frame|shadow)\((.+?)\)/);
+			if (pseudoMatch) {
+				let pseudoType = pseudoMatch[1];
+				let pseudoSelector = pseudoMatch[2];
+				let pseudoElem = parentElement.querySelector(pseudoSelector);
+				if (pseudoElem) {
+					doc = pseudoType === 'frame' ? pseudoElem.contentWindow.document : pseudoElem.shadowRoot;
+					selector = selector.slice(pseudoMatch[0].length).trim();
+					ctxChanged = true;
 				}
-				if (/^:(frame|shadow)\(/.test(selector)) {
-					return replacePseudo(selector, doc);
-				}
-				return { doc, selector, ctxChanged };
 			}
-			function queryElem(selectorString, parentElement = document) {
-				let secNode = null;
-				let { doc, selector } = replacePseudo(selectorString, parentElement);
-				secNode = doc.querySelector(selector);
-				return secNode;
+			if (/^:(frame|shadow)\(/.test(selector)) {
+				return replacePseudo(selector, doc);
 			}
-            try {
-                let elem = queryElem(selector);
-                if (elem) {
-                    let rect = elem.getBoundingClientRect();
-                    return rect.height > 0 && rect.width > 0;
-                } else {
-                    return false;
-				}
-            } catch(e) {
-                return false
-            }
-    	}`)
+			return { doc, selector, ctxChanged };
+		}
+		function queryElem(selectorString, parentElement = document) {
+			let secNode = null;
+			let { doc, selector } = replacePseudo(selectorString, parentElement);
+			secNode = doc.querySelector(selector);
+			return secNode;
+		}
+		try {
+			let elem = queryElem(selector);
+			if (elem) {
+				let rect = elem.getBoundingClientRect();
+				return rect.height > 0 && rect.width > 0;
+			} else {
+				return false;
+			}
+		} catch (e) {
+			return false;
+		}
+	}`)
 
 	result := page.MustEval(jsCode, selector)
 	return result.Bool()

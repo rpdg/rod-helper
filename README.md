@@ -9,6 +9,8 @@ A library of auxiliary tools for [rod](https://github.com/go-rod/rod), the goal 
 
 # Usage
 
+1. grab url 
+
 ```go
 func main() {
 	r := rpa.Crawler{}
@@ -27,14 +29,29 @@ func main() {
 }
 ```
 
+2. wait element show/hide
 
+``` go
+	import helper "github.com/rpdg/rod-helper"
+
+    helper.WaitElementHide(page, ".loading", 60)
+    helper.WaitElementShow(page, ".data-table", 10)
+    has := helper.ElementVisible(page, ".next-page")
+    if has {
+        println("data table has next page")
+    }
+
+
+```
+
+​	
 
 # Custom Pseudo class
 
 1. select element under iframe / frame:
 
     ```css
-    :frame( iframe_tag_selector ) inner_element_selector
+    :frame(iframe_element_selector) inner_element_selector
     ```
 
 2. select element under shadow-dom
