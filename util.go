@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
 	"os"
 	"path"
@@ -13,6 +14,72 @@ import (
 	"sort"
 	"time"
 )
+
+func ConnectDefaultBrowser(leakless, headless bool) (br *rod.Browser, err error) {
+	wsURL, err := launcher.NewUserMode().Leakless(leakless).Headless(headless).Launch()
+	if err != nil {
+		return
+	}
+	br = rod.New().ControlURL(wsURL).NoDefaultDevice()
+	err = br.Connect()
+	if err != nil {
+		return
+	}
+	return br, err
+}
+
+func ConnectChromeBrowser(leakless, headless bool) (br *rod.Browser, err error) {
+	chrome, found := launcher.LookPath()
+	if !found {
+		err = errors.New("chrome path not found")
+		return
+	}
+
+	l := launcher.New().Bin(chrome).Leakless(leakless).Headless(headless)
+	wsURL, err := l.Launch()
+	if err != nil {
+		return
+	}
+
+	br = rod.New().ControlURL(wsURL)
+	err = br.Connect()
+	if err != nil {
+		return
+	}
+	return br, err
+}
+
+func ConnectEdgedIE(leakless, headless bool) (br *rod.Browser, err error) {
+	p := "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
+	_, err = os.Stat(p)
+	if os.IsNotExist(err) {
+		err = errors.New("edge path not found")
+		return
+	}
+
+	l := launcher.New().Leakless(leakless).Bin(p).
+		Set("--ie-mode-force").
+		Set("--internet-explorer-integration", "iemode").
+		Set("--no-service-autorun").
+		Set("--disable-sync").
+		Set("--disable-features", "msImplicitSignin").
+		//Delete("--remote-debugging-port").
+		//UserDataDir("C:\\Users\\administrator\\AppData\\Local\\Microsoft\\Edge\\User Data").
+		Headless(headless)
+
+	wsURL, err := l.Launch()
+	if err != nil {
+		return
+	}
+
+	br = rod.New().ControlURL(wsURL)
+	err = br.Connect()
+	if err != nil {
+		return
+	}
+
+	return br, err
+}
 
 func OpenPage(browser *rod.Browser, url string, sleep int64, selector string, sign WaitSign) (page *rod.Page, err error) {
 	page, err = browser.Page(proto.TargetCreateTarget{URL: url})
@@ -24,12 +91,7 @@ func OpenPage(browser *rod.Browser, url string, sleep int64, selector string, si
 }
 
 func WaitPage(page *rod.Page, sleep int64, selector string, sign WaitSign) (err error) {
-	err = page.WaitLoad()
-	if err != nil {
-		return err
-	}
-
-	err = page.WaitIdle(time.Second * 30)
+	err = page.WaitStable(time.Second * 30)
 	if err != nil {
 		return err
 	}

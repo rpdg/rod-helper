@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
-	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/go-rod/rod/lib/utils"
 	"net/url"
@@ -205,37 +204,31 @@ func (c *Crawler) processExtUrl(extCfg string, extNode map[string]interface{}, i
 	}
 }
 
-func (c *Crawler) AttachDefaultBrowser() *rod.Browser {
-	wsURL := launcher.NewUserMode().Leakless(false).MustLaunch()
-	c.Browser = rod.New().ControlURL(wsURL).MustConnect().NoDefaultDevice()
-	return c.Browser
-}
-
-func (c *Crawler) AttachChromeBrowser() *rod.Browser {
-	chrome, found := launcher.LookPath()
-	if !found {
-		panic("not found")
+func (c *Crawler) AttachDefaultBrowser() error {
+	br, err := ConnectDefaultBrowser(true, false)
+	if err != nil {
+		return err
 	}
-	l := launcher.New().Bin(chrome).Leakless(true).Headless(true)
-	c.Browser = rod.New().ControlURL(l.MustLaunch()).MustConnect()
-	return c.Browser
+	c.Browser = br
+	return nil
 }
 
-func (c *Crawler) AttachEdgedIE() *rod.Browser {
-	path := "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
-	u := launcher.New().Leakless(false).Bin(path).
-		Set("--ie-mode-force").
-		Set("--internet-explorer-integration", "iemode").
-		Set("--no-service-autorun").
-		Set("--disable-sync").
-		Set("--disable-features", "msImplicitSignin").
-		//Delete("--remote-debugging-port").
-		//UserDataDir("C:\\Users\\administrator\\AppData\\Local\\Microsoft\\Edge\\User Data").
-		Headless(false).
-		MustLaunch()
-	c.Browser = rod.New().ControlURL(u).MustConnect()
+func (c *Crawler) AttachChromeBrowser() error {
+	br, err := ConnectChromeBrowser(true, false)
+	if err != nil {
+		return err
+	}
+	c.Browser = br
+	return nil
+}
 
-	return c.Browser
+func (c *Crawler) AttachEdgedIE() error {
+	br, err := ConnectEdgedIE(true, false)
+	if err != nil {
+		return err
+	}
+	c.Browser = br
+	return nil
 }
 
 func (c *Crawler) download(page *rod.Page, dlCfg DownloadConfig, dlData *DownloadResult, downloadRoot string) error {
