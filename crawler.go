@@ -222,8 +222,8 @@ func (c *Crawler) AttachChromeBrowser() error {
 	return nil
 }
 
-func (c *Crawler) AttachEdgedIE() error {
-	br, err := ConnectEdgedIE(true, false)
+func (c *Crawler) AttachEdgeBrowser(ieMode bool) error {
+	br, err := ConnectEdgeBrowser(true, false, ieMode)
 	if err != nil {
 		return err
 	}
