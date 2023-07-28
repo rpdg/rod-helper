@@ -53,7 +53,11 @@ func ConnectChromeBrowser(leakless, headless bool) (br *rod.Browser, err error) 
 		return
 	}
 
-	l := launcher.New().Bin(chrome).Leakless(leakless).Headless(headless)
+	l := launcher.New().Bin(chrome).Leakless(leakless).Headless(headless).
+		Set("disable-default-apps").
+		Set("no-first-run").
+		Set("no-default-browser-check")
+
 	wsURL, err := l.Launch()
 	if err != nil {
 		return
@@ -76,7 +80,11 @@ func ConnectEdgeBrowser(leakless, headless bool, ieMode bool) (br *rod.Browser, 
 		return
 	}
 
-	l := launcher.New().Bin(p).Leakless(leakless).Headless(headless)
+	l := launcher.New().Bin(p).Leakless(leakless).Headless(headless).
+		Set("disable-default-apps").
+		Set("no-first-run").
+		Set("no-default-browser-check")
+
 	if ieMode {
 		l.Set("--ie-mode-force").
 			Set("--internet-explorer-integration", "iemode").
@@ -84,7 +92,6 @@ func ConnectEdgeBrowser(leakless, headless bool, ieMode bool) (br *rod.Browser, 
 			Set("--disable-sync").
 			Set("--disable-features", "msImplicitSignin")
 		//.Delete("--remote-debugging-port")
-		//.UserDataDir("C:\\Users\\administrator\\AppData\\Local\\Microsoft\\Edge\\User Data")
 	}
 
 	wsURL, err := l.Launch()
