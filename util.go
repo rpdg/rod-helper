@@ -15,6 +15,7 @@ import (
 	"time"
 )
 
+// ConnectDefaultBrowser returns the system's default browser
 func ConnectDefaultBrowser(leakless, headless bool) (br *rod.Browser, err error) {
 	wsURL, err := launcher.NewUserMode().Leakless(leakless).Headless(headless).Launch()
 	if err != nil {
@@ -28,6 +29,23 @@ func ConnectDefaultBrowser(leakless, headless bool) (br *rod.Browser, err error)
 	return br, err
 }
 
+// ConnectChromiumBrowser returns the rod's embed browser
+func ConnectChromiumBrowser(leakless, headless bool) (br *rod.Browser, err error) {
+	l := launcher.New().Leakless(leakless).Headless(headless)
+	wsURL, err := l.Launch()
+	if err != nil {
+		return
+	}
+
+	br = rod.New().ControlURL(wsURL)
+	err = br.Connect()
+	if err != nil {
+		return
+	}
+	return br, err
+}
+
+// ConnectChromeBrowser returns the Chrome browser if installed
 func ConnectChromeBrowser(leakless, headless bool) (br *rod.Browser, err error) {
 	chrome, found := launcher.LookPath()
 	if !found {
@@ -49,7 +67,8 @@ func ConnectChromeBrowser(leakless, headless bool) (br *rod.Browser, err error) 
 	return br, err
 }
 
-func ConnectEdgedIE(leakless, headless bool) (br *rod.Browser, err error) {
+// ConnectEdgeBrowser returns the Edge browser if installed
+func ConnectEdgeBrowser(leakless, headless bool, ieMode bool) (br *rod.Browser, err error) {
 	p := "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
 	_, err = os.Stat(p)
 	if os.IsNotExist(err) {
@@ -57,15 +76,16 @@ func ConnectEdgedIE(leakless, headless bool) (br *rod.Browser, err error) {
 		return
 	}
 
-	l := launcher.New().Leakless(leakless).Bin(p).
-		Set("--ie-mode-force").
-		Set("--internet-explorer-integration", "iemode").
-		Set("--no-service-autorun").
-		Set("--disable-sync").
-		Set("--disable-features", "msImplicitSignin").
-		//Delete("--remote-debugging-port").
-		//UserDataDir("C:\\Users\\administrator\\AppData\\Local\\Microsoft\\Edge\\User Data").
-		Headless(headless)
+	l := launcher.New().Bin(p).Leakless(leakless).Headless(headless)
+	if ieMode {
+		l.Set("--ie-mode-force").
+			Set("--internet-explorer-integration", "iemode").
+			Set("--no-service-autorun").
+			Set("--disable-sync").
+			Set("--disable-features", "msImplicitSignin")
+		//.Delete("--remote-debugging-port")
+		//.UserDataDir("C:\\Users\\administrator\\AppData\\Local\\Microsoft\\Edge\\User Data")
+	}
 
 	wsURL, err := l.Launch()
 	if err != nil {
