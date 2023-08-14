@@ -316,6 +316,55 @@ func ElementVisible(page *rod.Page, selector string) bool {
 	return result.Bool()
 }
 
+func QueryElem(page *rod.Page, selector string) (*rod.Element, error) {
+	jsCode := fmt.Sprintf(`
+	(selector) => {
+		function replacePseudo(selector, parentElement = document) {
+			let doc = parentElement;
+			let ctxChanged = false;
+			let pseudoMatch = selector.match(/^:(frame|shadow)\((.+?)\)/);
+			if (pseudoMatch) {
+				let pseudoType = pseudoMatch[1];
+				let pseudoSelector = pseudoMatch[2];
+				let pseudoElem = parentElement.querySelector(pseudoSelector);
+				if (pseudoElem) {
+					doc = pseudoType === 'frame' ? pseudoElem.contentWindow.document : pseudoElem.shadowRoot;
+					selector = selector.slice(pseudoMatch[0].length).trim();
+					ctxChanged = true;
+				}
+			}
+			if (/^:(frame|shadow)\(/.test(selector)) {
+				return replacePseudo(selector, doc);
+			}
+			return { doc, selector, ctxChanged };
+		}
+		function queryElem(selectorString, parentElement = document) {
+			let secNode = null;
+			let { doc, selector } = replacePseudo(selectorString, parentElement);
+			secNode = doc.querySelector(selector);
+			return secNode;
+		}
+		try {
+			let elem = queryElem(selector);
+			if (elem) {
+				return elem;
+			} else {
+				return null;
+			}
+		} catch (e) {
+			return null;
+		}
+	}`)
+
+	opts := &rod.EvalOptions{
+		JS: jsCode,
+		JSArgs: []interface{}{
+			selector,
+		},
+	}
+	return page.ElementByJS(opts)
+}
+
 // WriteSortedJSONToFile writing indented and key sorted JSON to a file
 func WriteSortedJSONToFile(data interface{}, filename string) error {
 	// marshal the struct to json
