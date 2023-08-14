@@ -118,7 +118,7 @@ func OpenPage(browser *rod.Browser, url string, sleep int64, selector string, si
 }
 
 func WaitPage(page *rod.Page, sleep int64, selector string, sign WaitSign) (err error) {
-	err = page.WaitStable(time.Second * 30)
+	err = page.WaitStable(time.Second)
 	if err != nil {
 		return err
 	}

@@ -5,14 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/input"
-	"github.com/go-rod/rod/lib/proto"
-	"github.com/go-rod/rod/lib/utils"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/input"
+	"github.com/go-rod/rod/lib/proto"
+	"github.com/go-rod/rod/lib/utils"
 )
 
 type WaitSign string
@@ -202,6 +203,15 @@ func (c *Crawler) processExtUrl(extCfg string, extNode map[string]interface{}, i
 			extNode[itemName] = extData.Data
 		}
 	}
+}
+
+func (c *Crawler) AttachEmbedBrowser() error {
+	br, err := ConnectChromiumBrowser(true, false)
+	if err != nil {
+		return err
+	}
+	c.Browser = br
+	return nil
 }
 
 func (c *Crawler) AttachDefaultBrowser() error {
