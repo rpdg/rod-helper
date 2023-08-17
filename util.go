@@ -1,17 +1,23 @@
 package rpa
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/axgle/mahonia"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
+	"strings"
+	"syscall"
 	"time"
 )
 
@@ -456,6 +462,64 @@ func NormalizeFilename(name string) string {
 	outName := exp.ReplaceAllString(name, "_")
 	//println(name, outName)
 	return outName
+}
+
+// GetDictAndLastSegmentByPath returns the data extracted from the path and the last segment of the path.
+func GetDictAndLastSegmentByPath(data map[string]interface{}, path string) (interface{}, string) {
+	keys := strings.Split(strings.Trim(path, "/"), "/")
+	lastSegment := keys[len(keys)-1]
+
+	var dictData interface{} = data
+	for _, key := range keys[:len(keys)-1] {
+		if dict, ok := dictData.(map[string]interface{}); ok {
+			if val, exists := dict[key]; exists {
+				dictData = val
+			} else {
+				dictData = nil
+				break
+			}
+		} else {
+			dictData = nil
+			break
+		}
+	}
+
+	return dictData, lastSegment
+}
+
+type ExecuteResult struct {
+	output string
+	err    error
+}
+
+// ExecShell 执行shell命令，可设置执行超时时间
+func ExecShell(ctx context.Context, command string) (string, error) {
+	cmd := exec.Command("cmd", "/C", command)
+	// 隐藏cmd窗口
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow: true,
+	}
+	var resultChan chan ExecuteResult = make(chan ExecuteResult)
+	go func() {
+		output, err := cmd.CombinedOutput()
+		resultChan <- ExecuteResult{string(output), err}
+	}()
+	select {
+	case <-ctx.Done():
+		if cmd.Process.Pid > 0 {
+			exec.Command("taskkill", "/F", "/T", "/PID", strconv.Itoa(cmd.Process.Pid)).Run()
+			cmd.Process.Kill()
+		}
+		return "", errors.New("timeout killed")
+	case result := <-resultChan:
+		return GBK2UTF8(result.output), result.err
+	}
+}
+
+// GBK2UTF8 GBK编码转换为UTF8
+func GBK2UTF8(s string) string {
+	dec := mahonia.NewDecoder("gbk")
+	return dec.ConvertString(s)
 }
 
 // import "github.com/AllenDang/w32"

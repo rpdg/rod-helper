@@ -41,6 +41,7 @@ type DownloadType string
 const (
 	DownloadUrl     DownloadType = "url"
 	DownloadElement DownloadType = "element"
+	PrintToPDF      DownloadType = "toPDF"
 )
 
 type DownloadConfig struct {
@@ -48,19 +49,24 @@ type DownloadConfig struct {
 	SavePath   string       `json:"savePath,omitempty"`
 	NameProper string       `json:"nameProper,omitempty"`
 	NameRender string       `json:"nameRender,omitempty"`
+	LinkProper string       `json:"linkProper,omitempty"`
+	LinkRender string       `json:"linkRender,omitempty"`
 	Type       DownloadType `json:"type"`
 }
 
+type DictData map[string]interface{}
+
 type CrawlerConfig struct {
-	PageLoad        PageLoad                 `json:"pageLoad,omitempty"`
-	DataSection     []map[string]interface{} `json:"dataSection"`
-	SwitchSection   map[string]interface{}   `json:"switchSection,omitempty"`
-	DownloadRoot    string                   `json:"downloadRoot,omitempty"`
-	DownloadSection []DownloadConfig         `json:"downloadSection,omitempty"`
+	PageLoad        PageLoad         `json:"pageLoad,omitempty"`
+	DataSection     []DictData       `json:"dataSection"`
+	SwitchSection   DictData         `json:"switchSection,omitempty"`
+	DownloadRoot    string           `json:"downloadRoot,omitempty"`
+	DownloadSection []DownloadConfig `json:"downloadSection,omitempty"`
 }
 
 // DownloadResult is a part of result section
 type DownloadResult struct {
+	Label     string   `json:"label"`
 	Count     int      `json:"count"`
 	Errors    []int    `json:"errors"`
 	FileNames []string `json:"fileNames"`
@@ -74,7 +80,7 @@ type ExternalResult struct {
 }
 
 type Result struct {
-	Data            map[string]interface{}    `json:"data"`
+	Data            DictData                  `json:"data"`
 	DownloadRoot    string                    `json:"downloadRoot"`
 	Downloads       map[string]DownloadResult `json:"downloads"`
 	ExternalSection map[string]ExternalResult `json:"externalSection"`
@@ -126,6 +132,7 @@ func (c *Crawler) CrawlPage(page *rod.Page, cfgOrFile interface{}, autoDownload 
 	jsCode := fmt.Sprintf(`
 	(cfg)=>{
 		%s;
+		debugger;
 		return run(cfg);
 	}`, crawlerJs)
 
@@ -156,17 +163,18 @@ func (c *Crawler) CrawlPage(page *rod.Page, cfgOrFile interface{}, autoDownload 
 			if extItem.Config != "" {
 				extCfg, _ := joinPath(cfgFilePath, extItem.Config)
 				cc := extItem.Connect
-				parts := strings.Split(cc, "/")
-				secName := parts[0]
-				itemName := parts[1]
+				//parts := strings.Split(cc, "/")
+				//secName := parts[0]
+				var itemName string
+
 				var resNode interface{}
 				resNode = result.Data
-				if secName != "" {
-					if m, ok := resNode.(map[string]interface{}); ok {
-						resNode = m[secName]
-					} else {
-						return nil, err
-					}
+
+				if cc != "" {
+					resNode, itemName = GetDictAndLastSegmentByPath(resNode.(DictData), cc)
+					//if err != nil {
+					//	return nil, err
+					//}
 				}
 
 				if resNode != nil {
@@ -178,8 +186,9 @@ func (c *Crawler) CrawlPage(page *rod.Page, cfgOrFile interface{}, autoDownload 
 							}
 						}
 					case map[string]interface{}:
-						extNode := resNode.(map[string]interface{})
-						c.processExtUrl(extCfg, extNode, itemName, autoDownload, closeTab)
+						if extNode, oke := resNode.(map[string]interface{}); oke {
+							c.processExtUrl(extCfg, extNode, itemName, autoDownload, closeTab)
+						}
 					default:
 						return nil, fmt.Errorf("unexpected externalSection type %T", resNode)
 					}
@@ -193,7 +202,7 @@ func (c *Crawler) CrawlPage(page *rod.Page, cfgOrFile interface{}, autoDownload 
 	return &result, nil
 }
 
-func (c *Crawler) processExtUrl(extCfg string, extNode map[string]interface{}, itemName string, autoDownload bool, closeTab bool) {
+func (c *Crawler) processExtUrl(extCfg string, extNode DictData, itemName string, autoDownload bool, closeTab bool) {
 	extUrl := extNode[itemName].(string)
 	if extUrl != "" {
 		extData, _, err2 := c.CrawlUrl(extUrl, extCfg, autoDownload, closeTab)
@@ -203,42 +212,6 @@ func (c *Crawler) processExtUrl(extCfg string, extNode map[string]interface{}, i
 			extNode[itemName] = extData.Data
 		}
 	}
-}
-
-func (c *Crawler) AttachEmbedBrowser() error {
-	br, err := ConnectChromiumBrowser(true, false)
-	if err != nil {
-		return err
-	}
-	c.Browser = br
-	return nil
-}
-
-func (c *Crawler) AttachDefaultBrowser() error {
-	br, err := ConnectDefaultBrowser(true, false)
-	if err != nil {
-		return err
-	}
-	c.Browser = br
-	return nil
-}
-
-func (c *Crawler) AttachChromeBrowser() error {
-	br, err := ConnectChromeBrowser(true, false)
-	if err != nil {
-		return err
-	}
-	c.Browser = br
-	return nil
-}
-
-func (c *Crawler) AttachEdgeBrowser(ieMode bool) error {
-	br, err := ConnectEdgeBrowser(true, false, ieMode)
-	if err != nil {
-		return err
-	}
-	c.Browser = br
-	return nil
 }
 
 func (c *Crawler) download(page *rod.Page, dlCfg DownloadConfig, dlData *DownloadResult, downloadRoot string) error {
@@ -265,17 +238,25 @@ func (c *Crawler) download(page *rod.Page, dlCfg DownloadConfig, dlData *Downloa
 
 	for i, elem := range elems {
 		fileFullPathName := filepath.Join(saveDir, dlData.FileNames[i])
-		waitDownload := browser.MustWaitDownload()
-		if downType == DownloadUrl {
-			_ = page.Keyboard.Press(input.AltLeft)
-		}
-		elem.MustClick()
-		err = utils.OutputFile(fileFullPathName, waitDownload())
-		if err != nil {
-			dlData.Errors = append(dlData.Errors, i)
-		}
-		if downType == DownloadUrl {
-			_ = page.Keyboard.Release(input.AltLeft)
+		if downType == PrintToPDF {
+			br := page.Browser()
+			linkPage := br.MustPage(dlData.Links[i])
+			linkPage.MustWaitStable()
+			_ = linkPage.MustPDF(fileFullPathName)
+			linkPage.MustClose()
+		} else {
+			waitDownload := browser.MustWaitDownload()
+			if downType == DownloadUrl {
+				_ = page.Keyboard.Press(input.AltLeft)
+			}
+			elem.MustClick()
+			err = utils.OutputFile(fileFullPathName, waitDownload())
+			if err != nil {
+				dlData.Errors = append(dlData.Errors, i)
+			}
+			if downType == DownloadUrl {
+				_ = page.Keyboard.Release(input.AltLeft)
+			}
 		}
 	}
 
@@ -329,6 +310,42 @@ func joinPath(basePath, refPath string) (string, error) {
 		p := filepath.Join(basePath, refPath)
 		return filepath.Abs(p)
 	}
+}
+
+func (c *Crawler) AttachEmbedBrowser() error {
+	br, err := ConnectChromiumBrowser(true, false)
+	if err != nil {
+		return err
+	}
+	c.Browser = br
+	return nil
+}
+
+func (c *Crawler) AttachDefaultBrowser() error {
+	br, err := ConnectDefaultBrowser(true, false)
+	if err != nil {
+		return err
+	}
+	c.Browser = br
+	return nil
+}
+
+func (c *Crawler) AttachChromeBrowser() error {
+	br, err := ConnectChromeBrowser(true, false)
+	if err != nil {
+		return err
+	}
+	c.Browser = br
+	return nil
+}
+
+func (c *Crawler) AttachEdgeBrowser(ieMode bool) error {
+	br, err := ConnectEdgeBrowser(true, false, ieMode)
+	if err != nil {
+		return err
+	}
+	c.Browser = br
+	return nil
 }
 
 //go:embed "resource/crawler.js"

@@ -189,9 +189,22 @@ export interface IDownloadSection extends IConfigNode {
 	nameRender?: string;
 
 	/**
+	 * 链接对应的dom属性，默认取 innerText
+	 */
+	linkProper: string;
+	/**
+	 * Javascript function String，用来对结果进行转换，可选。
+	 *
+	 * 函数签名：(this<DownloadSection>, link<string>, node<HTMLElement>) => string
+	 *
+	 * 例："let parts = link.split('/'); return parts[parts.length - 1];"
+	 */
+	linkRender?: string;
+
+	/**
 	 * '枚举，与阿里RPA下载模式对应
 	 */
-	type: 'url' | 'element';
+	type: 'url' | 'element' | 'toPDF';
 }
 
 /**
@@ -223,6 +236,10 @@ export interface IResult {
  * IResult的下载段
  */
 export interface IDownloadResult {
+	/**
+	 * 即 IDownloadSection 的对应 label
+	 */
+	label : string;
 	/**
 	 * 下载数量
 	 */

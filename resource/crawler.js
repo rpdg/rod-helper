@@ -82,29 +82,68 @@ function appendExternalSection(extObj) {
         externalDict[key] = extObj;
     }
 }
-function crawlList(sectionId, sectionElements, items) {
+function crawlList(sectionId, sectionElements, items, cncPath) {
     let dataArray = [];
     let renders = {};
     sectionElements.forEach((element) => {
         let data = {};
         items.forEach((item) => {
-            let { result, node } = crawItem(item, element);
-            data[item.id] = result;
+            if ('itemType' in item) {
+                let { result, node } = crawItem(item, element);
+                data[item.id] = result;
+                if (item.valueRender) {
+                    try {
+                        if (!renders[item.id]) {
+                            renders[item.id] = new Function('val, node', item.valueRender);
+                        }
+                        let render = renders[item.id];
+                        let val = data[item.id];
+                        let res = render.call(item, val, node);
+                        if (res !== undefined) {
+                            data[item.id] = res;
+                        }
+                    }
+                    catch (err) {
+                        console.error('[' + item.id + '.valueRender]', err);
+                        data[item.id] = `err(${err.message})`;
+                    }
+                }
+                if (item.external) {
+                    let { id, config } = item.external;
+                    appendExternalSection({
+                        id: id || item.id,
+                        config,
+                        connect: `${cncPath}/${sectionId}/${item.id}`,
+                    });
+                }
+            }
+            else if ('sectionType' in item) {
+                let { result } = crawSection(item, element, cncPath + '/' + sectionId);
+                data[item.id] = result;
+            }
+        });
+        dataArray.push(data);
+    });
+    return dataArray;
+}
+function crawlForm(sectionId, sectionElement, items, cncPath) {
+    let dataObject = {};
+    items.forEach((item) => {
+        if ('itemType' in item) {
+            let { result, node } = crawItem(item, sectionElement);
+            dataObject[item.id] = result;
             if (item.valueRender) {
                 try {
-                    if (!renders[item.id]) {
-                        renders[item.id] = new Function('val, node', item.valueRender);
-                    }
-                    let render = renders[item.id];
-                    let val = data[item.id];
+                    let val = dataObject[item.id];
+                    let render = new Function('val, node', item.valueRender);
                     let res = render.call(item, val, node);
                     if (res !== undefined) {
-                        data[item.id] = res;
+                        dataObject[item.id] = res;
                     }
                 }
                 catch (err) {
                     console.error('[' + item.id + '.valueRender]', err);
-                    data[item.id] = `err(${err.message})`;
+                    dataObject[item.id] = `err(${err.message})`;
                 }
             }
             if (item.external) {
@@ -112,40 +151,13 @@ function crawlList(sectionId, sectionElements, items) {
                 appendExternalSection({
                     id: id || item.id,
                     config,
-                    connect: `${sectionId}/${item.id}`,
+                    connect: `${cncPath}/${sectionId}/${item.id}`,
                 });
             }
-        });
-        dataArray.push(data);
-    });
-    return dataArray;
-}
-function crawlForm(sectionId, sectionElement, items) {
-    let dataObject = {};
-    items.forEach((item) => {
-        let { result, node } = crawItem(item, sectionElement);
-        dataObject[item.id] = result;
-        if (item.valueRender) {
-            try {
-                let val = dataObject[item.id];
-                let render = new Function('val, node', item.valueRender);
-                let res = render.call(item, val, node);
-                if (res !== undefined) {
-                    dataObject[item.id] = res;
-                }
-            }
-            catch (err) {
-                console.error('[' + item.id + '.valueRender]', err);
-                dataObject[item.id] = `err(${err.message})`;
-            }
         }
-        if (item.external) {
-            let { id, config } = item.external;
-            appendExternalSection({
-                id: id || item.id,
-                config,
-                connect: `${sectionId}/${item.id}`,
-            });
+        else if ('sectionType' in item) {
+            let { result } = crawSection(item, sectionElement, cncPath + '/' + sectionId);
+            dataObject[item.id] = result;
         }
     });
     if (sectionElement.nodeType === Node.DOCUMENT_NODE) {
@@ -154,6 +166,56 @@ function crawlForm(sectionId, sectionElement, items) {
     else {
         return dataObject;
     }
+}
+function crawSection(sectionItem, parentElement = document, cncPath = '') {
+    let result;
+    let node = parentElement;
+    if (sectionItem.sectionType === 'form') {
+        if (sectionItem.selector) {
+            node = queryElem(sectionItem.selector, parentElement);
+        }
+        if (node) {
+            let crwData = crawlForm(sectionItem.id, node, sectionItem.items, cncPath);
+            result = assignDeep(result !== null && result !== void 0 ? result : {}, crwData);
+        }
+    }
+    else if (sectionItem.sectionType === 'list') {
+        if (sectionItem.selector) {
+            node = queryElems(sectionItem.selector, parentElement);
+        }
+        else {
+            node = [parentElement];
+        }
+        if (node.length) {
+            let crwData = crawlList(sectionItem.id, node, sectionItem.items, cncPath);
+            if (sectionItem.filterRender) {
+                try {
+                    const renderFunc = new Function('val , i , arr', sectionItem.filterRender);
+                    crwData = crwData.filter(renderFunc);
+                }
+                catch (err) {
+                    console.error('[' + sectionItem.id + '.filterRender]', err);
+                    crwData = [err.message];
+                }
+            }
+            result = result ? result.push(...crwData) : crwData;
+        }
+    }
+    if (sectionItem.dataRender && sectionItem.id in result) {
+        try {
+            let val = result;
+            let render = new Function('val, node', sectionItem.dataRender);
+            let res = render.call(sectionItem, val, node);
+            if (res !== undefined) {
+                result = res;
+            }
+        }
+        catch (err) {
+            console.error('[' + sectionItem.id + '.valueRender]', err);
+            result = `err(${err.message})`;
+        }
+    }
+    return { result, node };
 }
 function crawItem(item, parentElement = document) {
     var _a, _b, _c;
@@ -259,53 +321,12 @@ function crawItem(item, parentElement = document) {
 function crawlByConfig(dataSection) {
     let data = {};
     dataSection === null || dataSection === void 0 ? void 0 : dataSection.forEach((secItem) => {
-        var _a;
         if ('sectionType' in secItem) {
-            let secNode = null;
-            switch (secItem.sectionType) {
-                case 'form':
-                    secNode = queryElem(secItem.selector, document);
-                    if (secNode) {
-                        let crwData = crawlForm(secItem.id, secNode, secItem.items);
-                        data[secItem.id] = assignDeep((_a = data[secItem.id]) !== null && _a !== void 0 ? _a : {}, crwData);
-                    }
-                    break;
-                case 'list':
-                    secNode = queryElems(secItem.selector, document);
-                    if (secNode.length) {
-                        let crwData = crawlList(secItem.id, secNode, secItem.items);
-                        if (secItem.filterRender) {
-                            try {
-                                const renderFunc = new Function('val , i , arr', secItem.filterRender);
-                                crwData = crwData.filter(renderFunc);
-                            }
-                            catch (err) {
-                                console.error('[' + secItem.id + '.filterRender]', err);
-                                crwData = [err.message];
-                            }
-                        }
-                        data[secItem.id] = data[secItem.id] ? data[secItem.id].push(...crwData) : crwData;
-                    }
-                    break;
-                default:
-            }
-            if (secItem.dataRender && secItem.id in data) {
-                try {
-                    let val = data[secItem.id];
-                    let render = new Function('val, node', secItem.dataRender);
-                    let res = render.call(secItem, val, secNode);
-                    if (res !== undefined) {
-                        data[secItem.id] = res;
-                    }
-                }
-                catch (err) {
-                    console.error('[' + secItem.id + '.valueRender]', err);
-                    data[secItem.id] = `err(${err.message})`;
-                }
-            }
+            let { result } = crawSection(secItem);
+            data[secItem.id] = result;
         }
         else if ('itemType' in secItem) {
-            let crwData = crawlForm('', document, [secItem]);
+            let crwData = crawlForm('', document, [secItem], '');
             data[secItem.id] = crwData;
         }
     });
@@ -351,6 +372,7 @@ function run(cfg) {
             let elems = queryElems(dn.selector, document);
             let count = elems.length;
             result.downloads[dn.id] = {
+                label: dn.label,
                 count,
                 fileNames: [],
                 links: [],
@@ -360,13 +382,16 @@ function run(cfg) {
             let links = result.downloads[dn.id].links;
             elems.forEach((elem, i) => {
                 if (elem.getBoundingClientRect().height > 0) {
-                    let fileName = dn.nameProper ? elem.getAttribute(dn.nameProper) : elem.text;
+                    let fileName = dn.nameProper
+                        ? elem.getAttribute(dn.nameProper)
+                        : elem.text.trim();
                     if (dn.nameRender) {
                         try {
-                            if (!renders[dn.id]) {
-                                renders[dn.id] = new Function('name, node', dn.nameRender);
+                            let renderFnName = dn.id + '_dn_nameRender';
+                            if (!renders[renderFnName]) {
+                                renders[renderFnName] = new Function('name, node', dn.nameRender);
                             }
-                            let render = renders[dn.id];
+                            let render = renders[renderFnName];
                             let res = render.call(dn, fileName, elem);
                             if (res) {
                                 fileName = res.toString();
@@ -377,14 +402,39 @@ function run(cfg) {
                             fileName = err.message;
                         }
                     }
+                    if (dn.type === 'toPDF') {
+                        fileName += '.pdf';
+                    }
                     fileNames.push(fileName);
-                    if (dn.type === 'url') {
-                        if (elem.tagName === 'A') {
-                            links.push(elem.href);
+                    if (dn.type === 'url' || dn.type === 'toPDF') {
+                        let link;
+                        if (dn.linkProper) {
+                            link = elem.getAttribute(dn.linkProper) || '';
+                        }
+                        else if (elem.tagName === 'A') {
+                            link = elem.href;
                         }
                         else {
-                            links.push('');
+                            link = '';
                         }
+                        if (dn.linkRender) {
+                            try {
+                                let renderFnName = dn.id + '_dn_linkRender';
+                                if (!renders[renderFnName]) {
+                                    renders[renderFnName] = new Function('link, node', dn.linkRender);
+                                }
+                                let render = renders[renderFnName];
+                                let res = render.call(dn, link, elem);
+                                if (res) {
+                                    link = res.toString();
+                                }
+                            }
+                            catch (err) {
+                                console.error(dn.id + '-node[' + i + '.linkRender]', err);
+                                link = err.message;
+                            }
+                        }
+                        links.push(link);
                     }
                 }
                 else {
