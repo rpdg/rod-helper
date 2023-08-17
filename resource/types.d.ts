@@ -1,3 +1,7 @@
+export interface Json {
+	[key: string]: any;
+}
+
 /**
  * 配置整体结构
  */
@@ -57,6 +61,13 @@ export interface IConfigNode {
 	 */
 	selector: string;
 
+	/***
+	 * Javascript function String，用来对selector 的dom 结果进行修改，可选。
+	 *
+	 * 函数签名：(dom<Element | Element[] | null>) => Element | Element[] | null
+	 */
+	domRender?: string;
+
 	/**
 	 * 中文描述，供阅读方便用
 	 */
@@ -84,7 +95,6 @@ export interface IDataSection extends IConfigNode {
 	 * 固定传入 val, i, arr 三个参数，返回false的list item将被去除
 	 */
 	filterRender?: string;
-
 
 	/**
 	 * Javascript function String，用来对结果进行转换，可选。
@@ -146,7 +156,7 @@ export interface ISwitchSection {
 	/**
 	 * Javascript function String，用来对结果进行转换，可选。
 	 *
-	 * 函数签名：(this<SwitchSection>, data<IResult>, config<IConfig>) => string | number | bool | null | undefined
+	 * 函数签名：(this\<SwitchSection>, data\<IResult>, config\<IConfig>) => string | number | bool | null | undefined
 	 *
 	 * 例： "return data.barCode.startsWith(('SN')" 即返回barCode是否以SN开头的bool
 	 */
@@ -182,7 +192,7 @@ export interface IDownloadSection extends IConfigNode {
 	/**
 	 * Javascript function String，用来对结果进行转换，可选。
 	 *
-	 * 函数签名：(this<DownloadSection>, name<string>, node<HTMLElement>) => string
+	 * 函数签名：(this\<DownloadSection>, name\<string>, node\<HTMLElement>) => string
 	 *
 	 * 例："let parts = name.split('/'); return parts[parts.length - 1];"
 	 */
@@ -195,7 +205,7 @@ export interface IDownloadSection extends IConfigNode {
 	/**
 	 * Javascript function String，用来对结果进行转换，可选。
 	 *
-	 * 函数签名：(this<DownloadSection>, link<string>, node<HTMLElement>) => string
+	 * 函数签名：(this\<DownloadSection>, link\<string>, node\<HTMLElement>) => string
 	 *
 	 * 例："let parts = link.split('/'); return parts[parts.length - 1];"
 	 */
@@ -232,6 +242,21 @@ export interface IResult {
 	externalSection?: Record<string, IExternal>;
 }
 
+export interface IFileInfo {
+	/**
+	 * 文件名
+	 */
+	name: string;
+	/**
+	 * 若是url | toPDF 类型的下载，则会在此处存放下载链接
+	 */
+	url: string;
+	/**
+	 * 出错的话才有
+	 */
+	error: string;
+}
+
 /**
  * IResult的下载段
  */
@@ -239,23 +264,11 @@ export interface IDownloadResult {
 	/**
 	 * 即 IDownloadSection 的对应 label
 	 */
-	label : string;
+	label: string;
 	/**
-	 * 下载数量
+	 * 下载文件列表
 	 */
-	count: number;
-	/**
-	 * 文件名列表
-	 */
-	fileNames: string[];
-	/**
-	 * 若是url类型的下载，则会在此处存放下载链接
-	 */
-	links: string[];
-	/**
-	 * 出错index
-	 */
-	errors: number[];
+	files: IFileInfo[];
 }
 
 /**

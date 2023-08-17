@@ -64,13 +64,16 @@ type CrawlerConfig struct {
 	DownloadSection []DownloadConfig `json:"downloadSection,omitempty"`
 }
 
+type DownloadFileInfo struct {
+	Name  string `json:"name"`
+	Url   string `json:"url"`
+	Error string `json:"error"`
+}
+
 // DownloadResult is a part of result section
 type DownloadResult struct {
-	Label     string   `json:"label"`
-	Count     int      `json:"count"`
-	Errors    []int    `json:"errors"`
-	FileNames []string `json:"fileNames"`
-	Links     []string `json:"links"`
+	Label string             `json:"label"`
+	Files []DownloadFileInfo `json:"files"`
 }
 
 type ExternalResult struct {
@@ -237,10 +240,10 @@ func (c *Crawler) download(page *rod.Page, dlCfg DownloadConfig, dlData *Downloa
 	}
 
 	for i, elem := range elems {
-		fileFullPathName := filepath.Join(saveDir, dlData.FileNames[i])
+		fileFullPathName := filepath.Join(saveDir, dlData.Files[i].Name)
 		if downType == PrintToPDF {
 			br := page.Browser()
-			linkPage := br.MustPage(dlData.Links[i])
+			linkPage := br.MustPage(dlData.Files[i].Url)
 			linkPage.MustWaitStable()
 			_ = linkPage.MustPDF(fileFullPathName)
 			linkPage.MustClose()
@@ -252,7 +255,8 @@ func (c *Crawler) download(page *rod.Page, dlCfg DownloadConfig, dlData *Downloa
 			elem.MustClick()
 			err = utils.OutputFile(fileFullPathName, waitDownload())
 			if err != nil {
-				dlData.Errors = append(dlData.Errors, i)
+				dlData.Files[i].Error = err.Error()
+				continue
 			}
 			if downType == DownloadUrl {
 				_ = page.Keyboard.Release(input.AltLeft)

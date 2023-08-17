@@ -5,7 +5,7 @@
     // "incremental": true,                         /* 启用增量编译 */
     "removeComments": true,
     "target": "ES2018",                             /* 指定ECMAScript目标版本: 'ES3' (default), 'ES5', 'ES2015', 'ES2016', 'ES2017', 'ES2018', 'ES2019', 'ES2020', or 'ESNEXT' */
-    "module": "System",                           /* 指定模块代码生成: 'none', 'commonjs', 'amd', 'system', 'umd', 'es2015', 'es2020', 或者 'ESNext' */
+    "module": "ESNext",                           /* 指定模块代码生成: 'none', 'commonjs', 'amd', 'system', 'umd', 'es2015', 'es2020', 或者 'ESNext' */
     // "lib": [],                                   /* 指定要包含在编译中的库文件 */
     // "allowJs": true,                             /* 允许编译javascript文件 */
     // "checkJs": true,                             /* 在 .js 文件中报告错误 */
@@ -13,7 +13,7 @@
     // "declaration": true,                         /* 生成相应的 '.d.ts' 文件 */
     // "declarationMap": true,                      /* 为每个对应的'.d.ts'生成相应的sourcemap文件 */
     // "sourceMap": true,                           /* 生成相应的 '.map' 文件 */
-    "outFile": "./crawler.js",                      /* 指定一个输出文件的文件名 */
+    // "outFile": "./crawler.js",                      /* 指定一个输出文件的文件名 */
     // "outDir": "./",                              /* 重定向输出到该指定的目录 */
     // "rootDir": "./",                             /* 为输入文件指定一个根目录. 使用--outDir选项以控制输出目录结构 */
     // "composite": true,                           /* 使能（允许）项目编译 */

@@ -1,3 +1,4 @@
+type IFileInfo = import('./types').IFileInfo;
 type IDataSection = import('./types').IDataSection;
 type IConfig = import('./types').IConfig;
 type IExternal = import('./types').IExternal;
@@ -98,17 +99,34 @@ function replacePseudo(
 	return { doc, selector, ctxChanged };
 }
 
-function queryElem(selectorString: string, parentElement: Element | Document | ShadowRoot = document): Element | null {
+function queryElem(
+	selectorString: string,
+	parentElement: Element | Document | ShadowRoot = document,
+	domRender?: string
+): Element | null {
 	let secNode: Element | null = null;
 	let { doc, selector } = replacePseudo(selectorString, parentElement);
 	secNode = doc.querySelector(selector);
+
+	if (domRender) {
+		let rFn = new Function('dom', domRender);
+		secNode = rFn.call(window, secNode);
+	}
 	return secNode;
 }
 
-function queryElems(selectorString: string, parentElement: Element | Document | ShadowRoot = document): Element[] {
+function queryElems(
+	selectorString: string,
+	parentElement: Element | Document | ShadowRoot = document,
+	domRender?: string
+): Element[] {
 	let secNodes: Element[] = [];
 	let { doc, selector } = replacePseudo(selectorString, parentElement);
 	secNodes = Array.from(doc.querySelectorAll(selector));
+	if (domRender) {
+		let rFn = new Function('dom', domRender);
+		secNodes = rFn.call(window, secNodes);
+	}
 	return secNodes;
 }
 
@@ -229,7 +247,7 @@ function crawSection(
 	let node: Element | Element[] | Document | ShadowRoot | null = parentElement;
 	if (sectionItem.sectionType === 'form') {
 		if (sectionItem.selector) {
-			node = queryElem(sectionItem.selector, parentElement);
+			node = queryElem(sectionItem.selector, parentElement, sectionItem.domRender);
 		}
 		if (node) {
 			let crwData = crawlForm(sectionItem.id, node, sectionItem.items, cncPath);
@@ -237,11 +255,11 @@ function crawSection(
 		}
 	} else if (sectionItem.sectionType === 'list') {
 		if (sectionItem.selector) {
-			node = queryElems(sectionItem.selector, parentElement);
+			node = queryElems(sectionItem.selector, parentElement, sectionItem.domRender);
 		} else {
 			node = [parentElement as Element];
 		}
-		if (node.length) {
+		if (node?.length) {
 			let crwData = crawlList(sectionItem.id, node, sectionItem.items, cncPath);
 			if (sectionItem.filterRender) {
 				try {
@@ -277,7 +295,7 @@ function crawItem(item: IValueItem, parentElement: Element | Document | ShadowRo
 	let result: string | (string | null)[] | null = null;
 
 	if (item.itemType === 'text') {
-		node = queryElem(item.selector, parentElement);
+		node = queryElem(item.selector, parentElement, item.domRender);
 		if (node) {
 			if (item.valueProper) {
 				result = (node as HTMLSpanElement).getAttribute(item.valueProper);
@@ -286,7 +304,7 @@ function crawItem(item: IValueItem, parentElement: Element | Document | ShadowRo
 			}
 		}
 	} else if (item.itemType === 'textBox') {
-		node = queryElem(item.selector, parentElement);
+		node = queryElem(item.selector, parentElement, item.domRender);
 		if (node) {
 			if (node.tagName === 'INPUT' || node.tagName === 'TEXTAREA') {
 				if (item.valueProper) {
@@ -297,7 +315,7 @@ function crawItem(item: IValueItem, parentElement: Element | Document | ShadowRo
 			}
 		}
 	} else if (item.itemType === 'radioBox') {
-		node = queryElems(item.selector, parentElement);
+		node = queryElems(item.selector, parentElement, item.domRender);
 		if (node.length > 0) {
 			for (let i = 0, l = node.length; i < l; i++) {
 				let elem = node[i];
@@ -323,7 +341,7 @@ function crawItem(item: IValueItem, parentElement: Element | Document | ShadowRo
 			}
 		}
 	} else if (item.itemType === 'checkBox') {
-		node = queryElems(item.selector, parentElement);
+		node = queryElems(item.selector, parentElement, item.domRender);
 		result = [];
 		if (node.length > 0) {
 			for (let i = 0, l = node.length; i < l; i++) {
@@ -349,7 +367,7 @@ function crawItem(item: IValueItem, parentElement: Element | Document | ShadowRo
 			}
 		}
 	} else if (item.itemType === 'dropBox') {
-		node = queryElem(item.selector, parentElement);
+		node = queryElem(item.selector, parentElement, item.domRender);
 		if (node) {
 			let x = (node as HTMLSelectElement).selectedIndex;
 			let opt = (node as HTMLSelectElement).options[x];
@@ -406,11 +424,12 @@ function run(cfg: IConfig) {
 		let formatter = (function () {
 			let pattern = /\${(\w+([.]*\w*)*)\}(?!})/g;
 			return function (template: string, json: any) {
-				return template.replace(pattern, function (match, key: string) {
-					try {
-						return eval('(json.' + key + ')');
-					} catch (e) {
+				return template.replace(pattern, function (match, key) {
+					const value = key.split('.').reduce((obj: any, k: string) => obj[k], json);
+					if (value === undefined) {
 						return null;
+					} else {
+						return value;
 					}
 				});
 			};
@@ -422,19 +441,20 @@ function run(cfg: IConfig) {
 		result.downloads = {};
 		let renders: Record<string, Function> = {};
 		downloadSection?.forEach((dn) => {
-			let elems = queryElems(dn.selector, document);
-			let count = elems.length;
+			let elems = queryElems(dn.selector, document, dn.domRender);
+			// let count = elems.length;
 			result.downloads![dn.id] = {
 				label: dn.label,
-				count,
-				fileNames: [],
-				links: [],
-				errors: [],
+				files: [],
 			};
-			let fileNames = result.downloads![dn.id].fileNames;
-			let links = result.downloads![dn.id].links;
+			let files = result.downloads![dn.id].files;
 			elems.forEach((elem, i) => {
 				if (elem.getBoundingClientRect().height > 0) {
+					let fileInfo: IFileInfo = {
+						name: '',
+						url: '',
+						error: '',
+					};
 					let fileName = dn.nameProper
 						? elem.getAttribute(dn.nameProper)
 						: (elem as HTMLAnchorElement).text.trim();
@@ -451,15 +471,15 @@ function run(cfg: IConfig) {
 							}
 						} catch (err: any) {
 							console.error(dn.id + '-node[' + i + '.nameRender]', err);
-							fileName = err.message;
+							fileInfo.error = err.message;
 						}
 					}
 
-					if (dn.type === 'toPDF') {
+					if (dn.type === 'toPDF' && !fileInfo.error) {
 						fileName += '.pdf';
 					}
 
-					fileNames.push(fileName!);
+					fileInfo.name = fileName!;
 
 					if (dn.type === 'url' || dn.type === 'toPDF') {
 						let link: string;
@@ -483,14 +503,13 @@ function run(cfg: IConfig) {
 								}
 							} catch (err: any) {
 								console.error(dn.id + '-node[' + i + '.linkRender]', err);
-								link = err.message;
+								fileInfo.error = err.message;
 							}
 						}
 
-						links.push(link);
+						fileInfo.url = link;
 					}
-				} else {
-					result.downloads![dn.id].count--;
+					files.push(fileInfo);
 				}
 			});
 		});
