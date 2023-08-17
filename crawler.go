@@ -240,6 +240,9 @@ func (c *Crawler) download(page *rod.Page, dlCfg DownloadConfig, dlData *Downloa
 	}
 
 	for i, elem := range elems {
+		if dlData.Files[i].Error != "" {
+			continue
+		}
 		fileFullPathName := filepath.Join(saveDir, dlData.Files[i].Name)
 		if downType == PrintToPDF {
 			br := page.Browser()
