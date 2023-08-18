@@ -36,22 +36,22 @@ type ConfigNode struct {
 	ID       string `json:"id"`
 }
 
-type DownloadType string
+type DownloadTypeString string
 
 const (
-	DownloadUrl     DownloadType = "url"
-	DownloadElement DownloadType = "element"
-	PrintToPDF      DownloadType = "toPDF"
+	DownloadUrl     DownloadTypeString = "url"
+	DownloadElement DownloadTypeString = "element"
+	PrintToPDF      DownloadTypeString = "toPDF"
 )
 
 type DownloadConfig struct {
 	ConfigNode
-	SavePath   string       `json:"savePath,omitempty"`
-	NameProper string       `json:"nameProper,omitempty"`
-	NameRender string       `json:"nameRender,omitempty"`
-	LinkProper string       `json:"linkProper,omitempty"`
-	LinkRender string       `json:"linkRender,omitempty"`
-	Type       DownloadType `json:"type"`
+	SavePath     string             `json:"savePath,omitempty"`
+	NameProper   string             `json:"nameProper,omitempty"`
+	NameRender   string             `json:"nameRender,omitempty"`
+	LinkProper   string             `json:"linkProper,omitempty"`
+	LinkRender   string             `json:"linkRender,omitempty"`
+	DownloadType DownloadTypeString `json:"downloadType"`
 }
 
 type DictData map[string]interface{}
@@ -219,7 +219,7 @@ func (c *Crawler) processExtUrl(extCfg string, extNode DictData, itemName string
 
 func (c *Crawler) download(page *rod.Page, dlCfg DownloadConfig, dlData *DownloadResult, downloadRoot string) error {
 	selector := dlCfg.Selector
-	downType := dlCfg.Type
+	downType := dlCfg.DownloadType
 
 	var subDir string
 	if len(dlCfg.SavePath) > 0 {

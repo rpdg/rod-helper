@@ -116,7 +116,7 @@ export interface IValueItem extends IConfigNode {
 	/**
 	 * 枚举
 	 */
-	itemType: 'text' | 'textBox' | 'radioBox' | 'checkBox' | 'dropBox';
+	itemType: 'text' | 'textBox' | 'radioBox' | 'checkBox' | 'dropBox' | 'download';
 
 	/**
 	 * 数据取值的dom属性，默认取 innerText
@@ -131,6 +131,11 @@ export interface IValueItem extends IConfigNode {
 	 * 函数签名：固定传入 val, node 两个参数，this 指向当前的item
 	 */
 	valueRender?: string;
+
+	/**
+	 * 当 itemType = download 时，通过 downloadId 值关联 downloadSection 中对应的配置
+	 */
+	downloadId ?: string;
 
 	/**
 	 * 外链页面的配置，可选。
@@ -214,7 +219,7 @@ export interface IDownloadSection extends IConfigNode {
 	/**
 	 * '枚举，与阿里RPA下载模式对应
 	 */
-	type: 'url' | 'element' | 'toPDF';
+	downloadType: 'url' | 'element' | 'toPDF';
 }
 
 /**

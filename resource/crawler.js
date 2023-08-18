@@ -226,103 +226,112 @@ function crawSection(sectionItem, parentElement = document, cncPath = '') {
     return { result, node };
 }
 function crawItem(item, parentElement = document) {
-    var _a, _b, _c;
+    var _a, _b, _c, _d;
     let node = null;
     let result = null;
-    if (item.itemType === 'text') {
-        node = queryElem(item.selector, parentElement, item.domRender);
-        if (node) {
-            if (item.valueProper) {
-                result = node.getAttribute(item.valueProper);
-            }
-            else {
-                result = node.innerText.trim();
-            }
-        }
-    }
-    else if (item.itemType === 'textBox') {
-        node = queryElem(item.selector, parentElement, item.domRender);
-        if (node) {
-            if (node.tagName === 'INPUT' || node.tagName === 'TEXTAREA') {
+    switch (item.itemType) {
+        case 'text':
+            node = queryElem(item.selector, parentElement, item.domRender);
+            if (node) {
                 if (item.valueProper) {
                     result = node.getAttribute(item.valueProper);
                 }
                 else {
-                    result = node.value.trim();
+                    result = node.innerText.trim();
                 }
             }
-        }
-    }
-    else if (item.itemType === 'radioBox') {
-        node = queryElems(item.selector, parentElement, item.domRender);
-        if (node.length > 0) {
-            for (let i = 0, l = node.length; i < l; i++) {
-                let elem = node[i];
-                let radioNode;
-                if (elem.tagName === 'INPUT') {
-                    radioNode = elem;
-                }
-                else {
-                    radioNode = elem.querySelector('input[type=radio]');
-                }
-                if (radioNode === null || radioNode === void 0 ? void 0 : radioNode.checked) {
-                    if (elem.tagName === 'INPUT') {
-                        result = radioNode.getAttribute((_a = item.valueProper) !== null && _a !== void 0 ? _a : 'value');
+            break;
+        case 'textBox':
+            node = queryElem(item.selector, parentElement, item.domRender);
+            if (node) {
+                if (node.tagName === 'INPUT' || node.tagName === 'TEXTAREA') {
+                    if (item.valueProper) {
+                        result = node.getAttribute(item.valueProper);
                     }
                     else {
-                        if (item.valueProper) {
-                            result = elem.getAttribute(item.valueProper);
-                        }
-                        else {
-                            result = elem.innerText.trim();
-                        }
+                        result = node.value.trim();
                     }
-                    break;
                 }
             }
-        }
-    }
-    else if (item.itemType === 'checkBox') {
-        node = queryElems(item.selector, parentElement, item.domRender);
-        result = [];
-        if (node.length > 0) {
-            for (let i = 0, l = node.length; i < l; i++) {
-                let elem = node[i];
-                let checkNode;
-                if (elem.tagName === 'INPUT') {
-                    checkNode = elem;
-                }
-                else {
-                    checkNode = elem.querySelector('input[type=checkbox]');
-                }
-                if (checkNode === null || checkNode === void 0 ? void 0 : checkNode.checked) {
+            break;
+        case 'radioBox':
+            node = queryElems(item.selector, parentElement, item.domRender);
+            if (node.length > 0) {
+                for (let i = 0, l = node.length; i < l; i++) {
+                    let elem = node[i];
+                    let radioNode;
                     if (elem.tagName === 'INPUT') {
-                        result.push(checkNode.getAttribute((_b = item.valueProper) !== null && _b !== void 0 ? _b : 'value'));
+                        radioNode = elem;
                     }
                     else {
-                        if (item.valueProper) {
-                            result.push(elem.getAttribute(item.valueProper));
+                        radioNode = elem.querySelector('input[type=radio]');
+                    }
+                    if (radioNode === null || radioNode === void 0 ? void 0 : radioNode.checked) {
+                        if (elem.tagName === 'INPUT') {
+                            result = radioNode.getAttribute((_a = item.valueProper) !== null && _a !== void 0 ? _a : 'value');
                         }
                         else {
-                            result.push(elem.innerText.trim());
+                            if (item.valueProper) {
+                                result = elem.getAttribute(item.valueProper);
+                            }
+                            else {
+                                result = elem.innerText.trim();
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+            break;
+        case 'checkBox':
+            node = queryElems(item.selector, parentElement, item.domRender);
+            result = [];
+            if (node.length > 0) {
+                for (let i = 0, l = node.length; i < l; i++) {
+                    let elem = node[i];
+                    let checkNode;
+                    if (elem.tagName === 'INPUT') {
+                        checkNode = elem;
+                    }
+                    else {
+                        checkNode = elem.querySelector('input[type=checkbox]');
+                    }
+                    if (checkNode === null || checkNode === void 0 ? void 0 : checkNode.checked) {
+                        if (elem.tagName === 'INPUT') {
+                            result.push(checkNode.getAttribute((_b = item.valueProper) !== null && _b !== void 0 ? _b : 'value'));
+                        }
+                        else {
+                            if (item.valueProper) {
+                                result.push(elem.getAttribute(item.valueProper));
+                            }
+                            else {
+                                result.push(elem.innerText.trim());
+                            }
                         }
                     }
                 }
             }
-        }
-    }
-    else if (item.itemType === 'dropBox') {
-        node = queryElem(item.selector, parentElement, item.domRender);
-        if (node) {
-            let x = node.selectedIndex;
-            let opt = node.options[x];
-            if (((_c = item.valueProper) === null || _c === void 0 ? void 0 : _c.toLowerCase()) === 'value') {
-                result = opt.value;
+            break;
+        case 'dropBox':
+            node = queryElem(item.selector, parentElement, item.domRender);
+            if (node) {
+                let x = node.selectedIndex;
+                let opt = node.options[x];
+                if (((_c = item.valueProper) === null || _c === void 0 ? void 0 : _c.toLowerCase()) === 'value') {
+                    result = opt.value;
+                }
+                else {
+                    result = opt.text;
+                }
             }
-            else {
-                result = opt.text;
+            break;
+        case "download":
+            node = queryElem(item.selector, parentElement, item.domRender);
+            let dnCfg = (_d = globalConfig.downloadSection) === null || _d === void 0 ? void 0 : _d.find(c => c.id === item.downloadId);
+            if (node && dnCfg) {
+                result = crawlDownloadItem(dnCfg, node);
             }
-        }
+            break;
     }
     return { result, node };
 }
@@ -340,7 +349,76 @@ function crawlByConfig(dataSection) {
     });
     return data;
 }
+const crawlDownloadItem = function () {
+    let renders = {};
+    return function (dn, elem) {
+        let fileInfo = {
+            name: '',
+            url: '',
+            error: '',
+        };
+        if (elem.getBoundingClientRect().height > 0) {
+            let fileName = dn.nameProper
+                ? elem.getAttribute(dn.nameProper)
+                : elem.text.trim();
+            if (dn.nameRender) {
+                try {
+                    let renderFnName = dn.id + '_dn_nameRender';
+                    if (!renders[renderFnName]) {
+                        renders[renderFnName] = new Function('name, node', dn.nameRender);
+                    }
+                    let dnNameRender = renders[renderFnName];
+                    let res = dnNameRender.call(dn, fileName, elem);
+                    if (res) {
+                        fileName = res.toString();
+                    }
+                }
+                catch (err) {
+                    console.error(dn.id + '-node[nameRender]', err);
+                    fileInfo.error = err.message;
+                }
+            }
+            if (dn.downloadType === 'toPDF' && !fileInfo.error) {
+                fileName += '.pdf';
+            }
+            fileInfo.name = fileName;
+            if (dn.downloadType === 'url' || dn.downloadType === 'toPDF') {
+                let link;
+                if (dn.linkProper) {
+                    link = elem.getAttribute(dn.linkProper) || '';
+                }
+                else if (elem.tagName === 'A') {
+                    link = elem.href;
+                }
+                else {
+                    link = '';
+                }
+                if (dn.linkRender) {
+                    try {
+                        let renderFnName = dn.id + '_dn_linkRender';
+                        if (!renders[renderFnName]) {
+                            renders[renderFnName] = new Function('link, node', dn.linkRender);
+                        }
+                        let dnLinkRender = renders[renderFnName];
+                        let res = dnLinkRender.call(dn, link, elem);
+                        if (res) {
+                            link = res.toString();
+                        }
+                    }
+                    catch (err) {
+                        console.error(dn.id + '-node[linkRender]', err);
+                        fileInfo.error = err.message;
+                    }
+                }
+                fileInfo.url = link;
+            }
+        }
+        return fileInfo;
+    };
+}();
+let globalConfig;
 function run(cfg) {
+    globalConfig = cfg;
     let { dataSection, switchSection, downloadSection, downloadRoot } = cfg;
     let result = {
         data: {},
@@ -376,7 +454,6 @@ function run(cfg) {
     }
     if (downloadSection) {
         result.downloads = {};
-        let renders = {};
         downloadSection === null || downloadSection === void 0 ? void 0 : downloadSection.forEach((dn) => {
             let elems = queryElems(dn.selector, document, dn.domRender);
             result.downloads[dn.id] = {
@@ -386,65 +463,7 @@ function run(cfg) {
             let files = result.downloads[dn.id].files;
             elems.forEach((elem, i) => {
                 if (elem.getBoundingClientRect().height > 0) {
-                    let fileInfo = {
-                        name: '',
-                        url: '',
-                        error: '',
-                    };
-                    let fileName = dn.nameProper
-                        ? elem.getAttribute(dn.nameProper)
-                        : elem.text.trim();
-                    if (dn.nameRender) {
-                        try {
-                            let renderFnName = dn.id + '_dn_nameRender';
-                            if (!renders[renderFnName]) {
-                                renders[renderFnName] = new Function('name, node', dn.nameRender);
-                            }
-                            let render = renders[renderFnName];
-                            let res = render.call(dn, fileName, elem);
-                            if (res) {
-                                fileName = res.toString();
-                            }
-                        }
-                        catch (err) {
-                            console.error(dn.id + '-node[' + i + '.nameRender]', err);
-                            fileInfo.error = err.message;
-                        }
-                    }
-                    if (dn.type === 'toPDF' && !fileInfo.error) {
-                        fileName += '.pdf';
-                    }
-                    fileInfo.name = fileName;
-                    if (dn.type === 'url' || dn.type === 'toPDF') {
-                        let link;
-                        if (dn.linkProper) {
-                            link = elem.getAttribute(dn.linkProper) || '';
-                        }
-                        else if (elem.tagName === 'A') {
-                            link = elem.href;
-                        }
-                        else {
-                            link = '';
-                        }
-                        if (dn.linkRender) {
-                            try {
-                                let renderFnName = dn.id + '_dn_linkRender';
-                                if (!renders[renderFnName]) {
-                                    renders[renderFnName] = new Function('link, node', dn.linkRender);
-                                }
-                                let render = renders[renderFnName];
-                                let res = render.call(dn, link, elem);
-                                if (res) {
-                                    link = res.toString();
-                                }
-                            }
-                            catch (err) {
-                                console.error(dn.id + '-node[' + i + '.linkRender]', err);
-                                fileInfo.error = err.message;
-                            }
-                        }
-                        fileInfo.url = link;
-                    }
+                    let fileInfo = crawlDownloadItem(dn, elem);
                     files.push(fileInfo);
                 }
             });
