@@ -106,8 +106,12 @@ function queryElem(
 	domRender?: string
 ): Element | null {
 	let secNode: Element | null = null;
-	let { doc, selector } = replacePseudo(selectorString, parentElement);
-	secNode = doc.querySelector(selector);
+	if (!selectorString) {
+		secNode = parentElement as Element;
+	} else {
+		let { doc, selector } = replacePseudo(selectorString, parentElement);
+		secNode = doc.querySelector(selector);
+	}
 
 	if (domRender) {
 		let rFn = new Function('dom', domRender);
@@ -122,8 +126,13 @@ function queryElems(
 	domRender?: string
 ): Element[] {
 	let secNodes: Element[] = [];
-	let { doc, selector } = replacePseudo(selectorString, parentElement);
-	secNodes = Array.from(doc.querySelectorAll(selector));
+	if (!selectorString) {
+		secNodes = [parentElement as Element];
+	} else {
+		let { doc, selector } = replacePseudo(selectorString, parentElement);
+		secNodes = Array.from(doc.querySelectorAll(selector));
+	}
+
 	if (domRender) {
 		let rFn = new Function('dom', domRender);
 		secNodes = rFn.call(window, secNodes);
@@ -247,19 +256,13 @@ function crawSection(
 	let result: any;
 	let node: Element | Element[] | Document | ShadowRoot | null = parentElement;
 	if (sectionItem.sectionType === 'form') {
-		if (sectionItem.selector) {
-			node = queryElem(sectionItem.selector, parentElement, sectionItem.domRender);
-		}
+		node = queryElem(sectionItem.selector, parentElement, sectionItem.domRender);
 		if (node) {
 			let crwData = crawlForm(sectionItem.id, node, sectionItem.items, cncPath);
 			result = assignDeep(result ?? {}, crwData);
 		}
 	} else if (sectionItem.sectionType === 'list') {
-		if (sectionItem.selector) {
-			node = queryElems(sectionItem.selector, parentElement, sectionItem.domRender);
-		} else {
-			node = [parentElement as Element];
-		}
+		node = queryElems(sectionItem.selector, parentElement, sectionItem.domRender);
 		if (node?.length) {
 			let crwData = crawlList(sectionItem.id, node, sectionItem.items, cncPath);
 			if (sectionItem.filterRender) {
@@ -274,7 +277,7 @@ function crawSection(
 			result = result ? result.push(...crwData) : crwData;
 		}
 	}
-	if (sectionItem.dataRender && sectionItem.id in result) {
+	if (sectionItem.dataRender) {
 		try {
 			let val = result;
 			let render = new Function('val, node', sectionItem.dataRender);
@@ -530,6 +533,14 @@ function run(cfg: IConfig) {
 				label: dn.label,
 				files: [],
 			};
+			// if (dn.filterRender) {
+			// 	try {
+			// 		const renderFunc = new Function('val , i , arr', dn.filterRender) as () => boolean;
+			// 		elems = elems.filter(renderFunc);
+			// 	} catch (err: any) {
+			// 		console.error('[' + dn.id + '.filterRender]', err);
+			// 	}
+			// }
 			let files = result.downloads![dn.id].files;
 			elems.forEach((elem, i) => {
 				if (elem.getBoundingClientRect().height > 0) {

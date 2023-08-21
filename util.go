@@ -9,6 +9,7 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
+	"net/url"
 	"os"
 	"os/exec"
 	"path"
@@ -520,6 +521,22 @@ func ExecShell(ctx context.Context, command string) (string, error) {
 func GBK2UTF8(s string) string {
 	dec := mahonia.NewDecoder("gbk")
 	return dec.ConvertString(s)
+}
+
+func ExtractUrlParam(urlString, paramName string) (string, error) {
+	u, err := url.Parse(urlString)
+	if err != nil {
+		return "", err
+	}
+	params, err := url.ParseQuery(u.RawQuery)
+	if err != nil {
+		return "", err
+	}
+	values, ok := params[paramName]
+	if !ok || len(values) == 0 {
+		return "", fmt.Errorf("parameter not found")
+	}
+	return values[0], nil
 }
 
 // import "github.com/AllenDang/w32"

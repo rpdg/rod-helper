@@ -189,6 +189,14 @@ export interface IDownloadSection extends IConfigNode {
 	 */
 	savePath: string;
 
+	/***
+	 * Javascript function String，用来对List Section 的结果进行过滤，可选。
+	 *
+	 * 函数签名同 array.proto.filter：
+	 * 固定传入 val, i, arr 三个参数，返回false的list item将被去除
+	 */
+	// filterRender?: string;
+
 	/**
 	 * 文件名对应的dom属性，默认取 innerText
 	 */

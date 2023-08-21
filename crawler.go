@@ -106,6 +106,10 @@ func (c *Crawler) CrawlUrl(url string, cfgOrFile interface{}, autoDownload bool,
 	return res, page, err
 }
 
+//type CfgOrPath interface {
+//	~string | ~*CrawlerConfig
+//}
+
 func (c *Crawler) CrawlPage(page *rod.Page, cfgOrFile interface{}, autoDownload bool, closeTab bool) (*Result, error) {
 	var cfg *CrawlerConfig
 	var err error
