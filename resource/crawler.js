@@ -178,12 +178,7 @@ function crawlForm(sectionId, sectionElement, items, cncPath) {
             dataObject[item.id] = result;
         }
     });
-    if (sectionElement.nodeType === Node.DOCUMENT_NODE) {
-        return dataObject[items[0].id];
-    }
-    else {
-        return dataObject;
-    }
+    return dataObject;
 }
 function crawSection(sectionItem, parentElement = document, cncPath = '') {
     let result;
@@ -347,7 +342,7 @@ function crawlByConfig(dataSection) {
         }
         else if ('itemType' in secItem) {
             let crwData = crawlForm('', document, [secItem], '');
-            data[secItem.id] = crwData;
+            data[secItem.id] = crwData[secItem.id];
         }
     });
     return data;

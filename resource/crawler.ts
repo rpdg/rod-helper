@@ -241,11 +241,13 @@ function crawlForm(
 	});
 
 	// dataSection 下直接挂 valueItem 的情况
-	if (sectionElement.nodeType === Node.DOCUMENT_NODE) {
-		return dataObject[items[0].id];
-	} else {
-		return dataObject;
-	}
+	// if (sectionElement.nodeType === Node.DOCUMENT_NODE) {
+	// 	return dataObject[items[0].id];
+	// } else {
+	// 	return dataObject;
+	// }
+
+	return dataObject;
 }
 
 function crawSection(
@@ -408,7 +410,7 @@ function crawlByConfig(dataSection: (IValueItem | IDataSection)[]) {
 			data[secItem.id] = result;
 		} else if ('itemType' in secItem) {
 			let crwData = crawlForm('', document, [secItem], '');
-			data[secItem.id] = crwData;
+			data[secItem.id] = crwData[secItem.id];
 		}
 	});
 
