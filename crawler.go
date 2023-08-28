@@ -115,17 +115,19 @@ func (c *Crawler) CrawlPage(page *rod.Page, cfgOrFile interface{}, autoDownload 
 	var err error
 
 	cfgFilePath := ""
-	switch cfgOrFile.(type) {
+	switch val := cfgOrFile.(type) {
 	case string:
-		cfgFilePath = cfgOrFile.(string)
-		cfg, err = c.fetchCfg(cfgFilePath)
-		if err != nil {
-			return nil, err
-		}
+		cfg, err = c.fetchCfg(val)
+	case CrawlerConfig:
+		cfg = &val
 	case *CrawlerConfig:
-		cfg = cfgOrFile.(*CrawlerConfig)
+		cfg = val
 	default:
-		return nil, errors.New("unknown config data")
+		err = errors.New("unknown config data")
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	wait := cfg.PageLoad.Wait

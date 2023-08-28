@@ -2,7 +2,6 @@ package rpa
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/axgle/mahonia"
@@ -15,7 +14,6 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -24,7 +22,10 @@ import (
 
 // ConnectDefaultBrowser returns the system's default browser
 func ConnectDefaultBrowser(leakless, headless bool) (br *rod.Browser, err error) {
-	wsURL, err := launcher.NewUserMode().Leakless(leakless).Headless(headless).Launch()
+	wsURL, err := launcher.NewUserMode().Leakless(leakless).Headless(headless).
+		Set("disable-default-apps").
+		Set("no-first-run").
+		Set("no-default-browser-check").Launch()
 	if err != nil {
 		return
 	}
@@ -38,7 +39,10 @@ func ConnectDefaultBrowser(leakless, headless bool) (br *rod.Browser, err error)
 
 // ConnectChromiumBrowser returns the rod's embed browser
 func ConnectChromiumBrowser(leakless, headless bool) (br *rod.Browser, err error) {
-	l := launcher.New().Leakless(leakless).Headless(headless)
+	l := launcher.New().Leakless(leakless).Headless(headless).
+		Set("disable-default-apps").
+		Set("no-first-run").
+		Set("no-default-browser-check")
 	wsURL, err := l.Launch()
 	if err != nil {
 		return
@@ -370,42 +374,6 @@ func QueryElem(page *rod.Page, selector string) (*rod.Element, error) {
 		},
 	}
 	return page.ElementByJS(opts)
-}
-
-// WriteSortedJSONToFile writing indented and key sorted JSON to a file
-func WriteSortedJSONToFile(data interface{}, filename string) error {
-	// marshal the struct to json
-	b, err := json.Marshal(data)
-	if err != nil {
-		return err
-	}
-
-	var jsonData map[string]interface{}
-	err = json.Unmarshal(b, &jsonData)
-	if err != nil {
-		return err
-	}
-
-	// sort the keys
-	var keys []string
-	for key := range jsonData {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-
-	// rebuild the json object in sorted order
-	sortedData := make(map[string]interface{})
-	for _, key := range keys {
-		sortedData[key] = jsonData[key]
-	}
-	// marshal the sorted json object
-	sortedJson, err := json.MarshalIndent(sortedData, "", "\t")
-	if err != nil {
-		return err
-	}
-
-	// write the json to a file
-	return os.WriteFile(filename, sortedJson, 0644)
 }
 
 // RenameFileUnique rename file name if there are duplicate files
