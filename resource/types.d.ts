@@ -242,7 +242,7 @@ export interface IResult {
 	/**
 	 * 执行后的下载段
 	 */
-	downloads?: Record<string, IDownloadResult>;
+	downloads: Record<string, IDownloadResult>;
 
 	/**
 	 * 解析后的下载基础路径

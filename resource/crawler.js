@@ -418,6 +418,7 @@ function run(cfg) {
     let { dataSection, switchSection, downloadSection, downloadRoot } = cfg;
     let result = {
         data: {},
+        downloads: {}
     };
     if (dataSection) {
         result.data = crawlByConfig(dataSection);
@@ -449,8 +450,7 @@ function run(cfg) {
         result.downloadRoot = formatter(downloadRoot, result);
     }
     if (downloadSection) {
-        result.downloads = {};
-        downloadSection === null || downloadSection === void 0 ? void 0 : downloadSection.forEach((dn) => {
+        downloadSection.forEach((dn) => {
             let elems = queryElems(dn.selector, document, dn.domRender);
             result.downloads[dn.id] = {
                 label: dn.label,

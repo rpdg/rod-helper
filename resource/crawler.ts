@@ -491,6 +491,7 @@ function run(cfg: IConfig) {
 	let { dataSection, switchSection, downloadSection, downloadRoot } = cfg;
 	let result: IResult = {
 		data: {},
+		downloads: {}
 	};
 
 	if (dataSection) {
@@ -527,8 +528,7 @@ function run(cfg: IConfig) {
 	}
 
 	if (downloadSection) {
-		result.downloads = {};
-		downloadSection?.forEach((dn) => {
+		downloadSection.forEach((dn) => {
 			let elems = queryElems(dn.selector, document, dn.domRender);
 			// let count = elems.length;
 			result.downloads![dn.id] = {
