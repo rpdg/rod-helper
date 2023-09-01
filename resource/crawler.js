@@ -325,7 +325,7 @@ function crawItem(item, parentElement = document) {
             break;
         case 'download':
             node = queryElem(item.selector, parentElement, item.domRender);
-            let dnCfg = (_d = GlobalConfig.downloadSection) === null || _d === void 0 ? void 0 : _d.find((c) => c.id === item.downloadId);
+            let dnCfg = (_d = __config__.downloadSection) === null || _d === void 0 ? void 0 : _d.find((c) => c.id === item.downloadId);
             if (node && dnCfg) {
                 result = crawlDownloadItem(dnCfg, node);
             }
@@ -412,24 +412,24 @@ const crawlDownloadItem = (function () {
         return fileInfo;
     };
 })();
-let GlobalConfig;
+let __config__;
+let __result__ = {
+    data: {},
+    downloads: {}
+};
 function run(cfg) {
-    GlobalConfig = cfg;
+    __config__ = cfg;
     let { dataSection, switchSection, downloadSection, downloadRoot } = cfg;
-    let result = {
-        data: {},
-        downloads: {}
-    };
     if (dataSection) {
-        result.data = crawlByConfig(dataSection);
+        __result__.data = crawlByConfig(dataSection);
     }
     if (switchSection) {
         let swRender = new Function('data, config', switchSection.switchRender);
-        let swRes = swRender.call(switchSection, result.data, cfg);
+        let swRes = swRender.call(switchSection, __result__.data, cfg);
         let matchedCase = switchSection.cases.find((c) => c.case === swRes || (c.case instanceof Array && c.case.indexOf(swRes) > -1));
         if (matchedCase) {
             let swData = crawlByConfig(matchedCase.dataSection);
-            result.data = assignDeep(result.data, swData);
+            __result__.data = assignDeep(__result__.data, swData);
         }
     }
     if (downloadRoot) {
@@ -447,16 +447,16 @@ function run(cfg) {
                 });
             };
         })();
-        result.downloadRoot = formatter(downloadRoot, result);
+        __result__.downloadRoot = formatter(downloadRoot, __result__);
     }
     if (downloadSection) {
         downloadSection.forEach((dn) => {
             let elems = queryElems(dn.selector, document, dn.domRender);
-            result.downloads[dn.id] = {
+            __result__.downloads[dn.id] = {
                 label: dn.label,
                 files: [],
             };
-            let files = result.downloads[dn.id].files;
+            let files = __result__.downloads[dn.id].files;
             elems.forEach((elem, i) => {
                 if (elem.getBoundingClientRect().height > 0) {
                     let fileInfo = crawlDownloadItem(dn, elem);
@@ -466,7 +466,7 @@ function run(cfg) {
         });
     }
     if (Object.keys(externalDict).length) {
-        result.externalSection = externalDict;
+        __result__.externalSection = externalDict;
     }
-    return result;
+    return __result__;
 }
