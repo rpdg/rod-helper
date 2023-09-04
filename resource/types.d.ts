@@ -228,6 +228,11 @@ export interface IDownloadSection extends IConfigNode {
 	 * '枚举，与阿里RPA下载模式对应
 	 */
 	downloadType: 'url' | 'element' | 'toPDF';
+
+	/**
+	 * 插入对应的Result Data的路径
+	 */
+	insertTo ?: string;
 }
 
 /**

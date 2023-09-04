@@ -115,8 +115,7 @@ function crawlList(sectionId, sectionElements, items, cncPath) {
                             renders[item.id] = new Function('val, node', item.valueRender);
                         }
                         let render = renders[item.id];
-                        let val = data[item.id];
-                        let res = render.call(item, val, node);
+                        let res = render.call({ ...item, ctx: { __config__, __result__, curSectionResult: data } }, result, node);
                         if (res !== undefined) {
                             data[item.id] = res;
                         }
@@ -152,9 +151,8 @@ function crawlForm(sectionId, sectionElement, items, cncPath) {
             dataObject[item.id] = result;
             if (item.valueRender) {
                 try {
-                    let val = dataObject[item.id];
                     let render = new Function('val, node', item.valueRender);
-                    let res = render.call(item, val, node);
+                    let res = render.call({ ...item, ctx: { __config__, __result__, curSectionResult: dataObject } }, result, node);
                     if (res !== undefined) {
                         dataObject[item.id] = res;
                     }
@@ -192,26 +190,23 @@ function crawSection(sectionItem, parentElement = document, cncPath = '') {
     }
     else if (sectionItem.sectionType === 'list') {
         node = queryElems(sectionItem.selector, parentElement, sectionItem.domRender);
-        if (node === null || node === void 0 ? void 0 : node.length) {
-            let crwData = crawlList(sectionItem.id, node, sectionItem.items, cncPath);
-            if (sectionItem.filterRender) {
-                try {
-                    const renderFunc = new Function('val , i , arr', sectionItem.filterRender);
-                    crwData = crwData.filter(renderFunc);
-                }
-                catch (err) {
-                    console.error('[' + sectionItem.id + '.filterRender]', err);
-                    crwData = [err.message];
-                }
+        let crwData = crawlList(sectionItem.id, node, sectionItem.items, cncPath);
+        if (sectionItem.filterRender) {
+            try {
+                const renderFunc = new Function('val , i , arr', sectionItem.filterRender);
+                crwData = crwData.filter(renderFunc);
             }
-            result = result ? result.push(...crwData) : crwData;
+            catch (err) {
+                console.error('[' + sectionItem.id + '.filterRender]', err);
+                crwData = [err.message];
+            }
         }
+        result = result ? result.push(...crwData) : crwData;
     }
     if (sectionItem.dataRender) {
         try {
-            let val = result;
             let render = new Function('val, node', sectionItem.dataRender);
-            let res = render.call(sectionItem, val, node);
+            let res = render.call({ ...sectionItem, ctx: { __config__, __result__ } }, result, node);
             if (res !== undefined) {
                 result = res;
             }
@@ -364,7 +359,7 @@ const crawlDownloadItem = (function () {
                         renders[renderFnName] = new Function('name, node', dn.nameRender);
                     }
                     let dnNameRender = renders[renderFnName];
-                    let res = dnNameRender.call(dn, fileName, elem);
+                    let res = dnNameRender.call({ ...dn, ctx: { __config__, __result__ } }, fileName, elem);
                     if (res) {
                         fileName = res.toString();
                     }
@@ -396,7 +391,7 @@ const crawlDownloadItem = (function () {
                             renders[renderFnName] = new Function('link, node', dn.linkRender);
                         }
                         let dnLinkRender = renders[renderFnName];
-                        let res = dnLinkRender.call(dn, link, elem);
+                        let res = dnLinkRender.call({ ...dn, ctx: { __config__, __result__ } }, link, elem);
                         if (res) {
                             link = res.toString();
                         }
@@ -415,7 +410,7 @@ const crawlDownloadItem = (function () {
 let __config__;
 let __result__ = {
     data: {},
-    downloads: {}
+    downloads: {},
 };
 function run(cfg) {
     __config__ = cfg;
@@ -425,7 +420,7 @@ function run(cfg) {
     }
     if (switchSection) {
         let swRender = new Function('data, config', switchSection.switchRender);
-        let swRes = swRender.call(switchSection, __result__.data, cfg);
+        let swRes = swRender.call({ ...switchSection, ctx: { __config__, __result__ } }, __result__.data, cfg);
         let matchedCase = switchSection.cases.find((c) => c.case === swRes || (c.case instanceof Array && c.case.indexOf(swRes) > -1));
         if (matchedCase) {
             let swData = crawlByConfig(matchedCase.dataSection);
@@ -461,6 +456,27 @@ function run(cfg) {
                 if (elem.getBoundingClientRect().height > 0) {
                     let fileInfo = crawlDownloadItem(dn, elem);
                     files.push(fileInfo);
+                    if (dn.insertTo) {
+                        const pathArray = dn.insertTo.split('.');
+                        let result = __result__.data;
+                        for (let i = 0; i < pathArray.length - 1; i++) {
+                            if (result[pathArray[i]] === undefined) {
+                                result = undefined;
+                                break;
+                            }
+                            result = result[pathArray[i]];
+                        }
+                        if (result[pathArray[pathArray.length - 1]]) {
+                            if (!Array.isArray(result[pathArray[pathArray.length - 1]].files)) {
+                                result[pathArray[pathArray.length - 1]] = {
+                                    files: [],
+                                    label: dn.label,
+                                    downloadId: dn.id,
+                                };
+                            }
+                            result[pathArray[pathArray.length - 1]].files.push(fileInfo);
+                        }
+                    }
                 }
             });
         });

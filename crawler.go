@@ -51,6 +51,7 @@ type DownloadConfig struct {
 	NameRender   string             `json:"nameRender,omitempty"`
 	LinkProper   string             `json:"linkProper,omitempty"`
 	LinkRender   string             `json:"linkRender,omitempty"`
+	InsertTo     string             `json:"insertTo,omitempty"`
 	DownloadType DownloadTypeString `json:"downloadType"`
 }
 
