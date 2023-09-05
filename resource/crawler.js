@@ -460,21 +460,21 @@ function run(cfg) {
                         const pathArray = dn.insertTo.split('.');
                         let result = __result__.data;
                         for (let i = 0; i < pathArray.length - 1; i++) {
-                            if (result[pathArray[i]] === undefined) {
-                                result = undefined;
-                                break;
+                            if (typeof result[pathArray[i]] === 'undefined') {
+                                result[pathArray[i]] = {};
                             }
                             result = result[pathArray[i]];
                         }
-                        if (result[pathArray[pathArray.length - 1]]) {
-                            if (!Array.isArray(result[pathArray[pathArray.length - 1]].files)) {
-                                result[pathArray[pathArray.length - 1]] = {
+                        const pClip = pathArray[pathArray.length - 1];
+                        if (typeof result[pClip] !== 'undefined') {
+                            if (!Array.isArray(result[pClip].files)) {
+                                result[pClip] = {
                                     files: [],
                                     label: dn.label,
                                     downloadId: dn.id,
                                 };
                             }
-                            result[pathArray[pathArray.length - 1]].files.push(fileInfo);
+                            result[pClip].files.push(fileInfo);
                         }
                     }
                 }
