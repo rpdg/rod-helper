@@ -192,12 +192,12 @@ func (c *Crawler) CrawlPage(page *rod.Page, cfgOrFile interface{}, autoDownload 
 					case []interface{}:
 						for _, resExtNode := range resNode.([]interface{}) {
 							if extNode, oke := resExtNode.(map[string]interface{}); oke {
-								c.processExtUrl(extCfg, extNode, itemName, autoDownload, closeTab)
+								c.processExtUrl(extCfg, extNode, itemName, autoDownload)
 							}
 						}
 					case map[string]interface{}:
 						if extNode, oke := resNode.(map[string]interface{}); oke {
-							c.processExtUrl(extCfg, extNode, itemName, autoDownload, closeTab)
+							c.processExtUrl(extCfg, extNode, itemName, autoDownload)
 						}
 					default:
 						return nil, fmt.Errorf("unexpected externalSection type %T", resNode)
@@ -212,10 +212,10 @@ func (c *Crawler) CrawlPage(page *rod.Page, cfgOrFile interface{}, autoDownload 
 	return &result, nil
 }
 
-func (c *Crawler) processExtUrl(extCfg string, extNode DictData, itemName string, autoDownload bool, closeTab bool) {
+func (c *Crawler) processExtUrl(extCfg string, extNode DictData, itemName string, autoDownload bool) {
 	extUrl := extNode[itemName].(string)
 	if extUrl != "" {
-		extData, _, err2 := c.CrawlUrl(extUrl, extCfg, autoDownload, closeTab)
+		extData, _, err2 := c.CrawlUrl(extUrl, extCfg, autoDownload, true)
 		if err2 != nil {
 			extNode[itemName] = fmt.Sprintf("an error occurred when crawling the external url: %s", err2)
 		} else {
