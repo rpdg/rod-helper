@@ -452,7 +452,7 @@ const crawlDownloadItem: (dn: IDownloadSection, elem: Element) => IFileInfo = (f
 				fileName += '.pdf';
 			}
 
-			fileInfo.name = fileName!;
+			fileInfo.name = fileName!.replace(/[\\/:*?"<>|\r\n\t]/g, "");
 
 			if (dn.downloadType === 'url' || dn.downloadType === 'toPDF') {
 				let link: string;

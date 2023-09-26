@@ -372,7 +372,7 @@ const crawlDownloadItem = (function () {
             if (dn.downloadType === 'toPDF' && !fileInfo.error) {
                 fileName += '.pdf';
             }
-            fileInfo.name = fileName;
+            fileInfo.name = fileName.replace(/[\\/:*?"<>|\r\n\t]/g, "");
             if (dn.downloadType === 'url' || dn.downloadType === 'toPDF') {
                 let link;
                 if (dn.linkProper) {
