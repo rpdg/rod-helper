@@ -258,12 +258,26 @@ func (c *Crawler) download(page *rod.Page, dlCfg DownloadConfig, dlData *Downloa
 			_ = linkPage.MustPDF(fileFullPathName)
 			linkPage.MustClose()
 		} else {
-			waitDownload := browser.MustWaitDownload()
 			if downType == DownloadUrl {
 				_ = page.Keyboard.Press(input.AltLeft)
 			}
 			elem.MustClick()
-			err = utils.OutputFile(fileFullPathName, waitDownload())
+
+			var fileData []byte
+			if dlCfg.NameRender == "auto" {
+				waitDownload := MustWaitDownloadRelax(browser)
+				var fileName string
+				fileData, fileName = waitDownload()
+				if len(fileName) > 0 && fileName != dlData.Files[i].Name {
+					dlData.Files[i].Name = fileName
+					fileFullPathName = filepath.Join(saveDir, fileName)
+				}
+			} else {
+				waitDownload := browser.MustWaitDownload()
+				fileData = waitDownload()
+			}
+
+			err = utils.OutputFile(fileFullPathName, fileData)
 			if err != nil {
 				dlData.Files[i].Error = err.Error()
 				continue
@@ -275,6 +289,21 @@ func (c *Crawler) download(page *rod.Page, dlCfg DownloadConfig, dlData *Downloa
 	}
 
 	return nil
+}
+
+func MustWaitDownloadRelax(b *rod.Browser) func() ([]byte, string) {
+	tmpDir := filepath.Join(os.TempDir(), "rod", "downloads")
+	wait := b.WaitDownload(tmpDir)
+
+	return func() (data []byte, n string) {
+		info := wait()
+		path := filepath.Join(tmpDir, info.GUID)
+		defer func() { _ = os.Remove(path) }()
+		rod.Try(func() {
+			data, _ = os.ReadFile(path)
+		})
+		return data, info.SuggestedFilename
+	}
 }
 
 func (c *Crawler) fetchCfg(cfgPath string) (*CrawlerConfig, error) {

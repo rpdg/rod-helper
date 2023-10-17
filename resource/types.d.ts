@@ -208,6 +208,8 @@ export interface IDownloadSection extends IConfigNode {
 	 * 函数签名：(this\<DownloadSection>, name\<string>, node\<HTMLElement>) => string
 	 *
 	 * 例："let parts = name.split('/'); return parts[parts.length - 1];"
+	 *
+	 * 如果 nameRender = "auto"，那么将使用下载信息推荐的文件名
 	 */
 	nameRender?: string;
 
@@ -225,7 +227,7 @@ export interface IDownloadSection extends IConfigNode {
 	linkRender?: string;
 
 	/**
-	 * '枚举，与阿里RPA下载模式对应
+	 * '枚举
 	 */
 	downloadType: 'url' | 'element' | 'toPDF';
 

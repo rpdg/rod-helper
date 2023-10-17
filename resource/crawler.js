@@ -353,20 +353,27 @@ const crawlDownloadItem = (function () {
         if (elem.getBoundingClientRect().height > 0) {
             let fileName = dn.nameProper ? elem.getAttribute(dn.nameProper) : elem.text.trim();
             if (dn.nameRender) {
-                try {
-                    let renderFnName = dn.id + '_dn_nameRender';
-                    if (!renders[renderFnName]) {
-                        renders[renderFnName] = new Function('name, node', dn.nameRender);
+                if(dn.nameRender === 'auto'){
+                    if(dn.downloadType === 'toPDF'){
+                        //
+                    } else {
+                        fileName = '::auto_placeholder';
                     }
-                    let dnNameRender = renders[renderFnName];
-                    let res = dnNameRender.call({ ...dn, ctx: { __config__, __result__ } }, fileName, elem);
-                    if (res) {
-                        fileName = res.toString();
+                } else {
+                    try {
+                        let renderFnName = dn.id + '_dn_nameRender';
+                        if (!renders[renderFnName]) {
+                            renders[renderFnName] = new Function('name, node', dn.nameRender);
+                        }
+                        let dnNameRender = renders[renderFnName];
+                        let res = dnNameRender.call({...dn, ctx: {__config__, __result__}}, fileName, elem);
+                        if (res) {
+                            fileName = res.toString();
+                        }
+                    } catch (err) {
+                        console.error(dn.id + '-node[nameRender]', err);
+                        fileInfo.error = err.message;
                     }
-                }
-                catch (err) {
-                    console.error(dn.id + '-node[nameRender]', err);
-                    fileInfo.error = err.message;
                 }
             }
             if (dn.downloadType === 'toPDF' && !fileInfo.error) {
