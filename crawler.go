@@ -163,7 +163,22 @@ func (c *Crawler) CrawlPage(page *rod.Page, cfgOrFile interface{}, autoDownload 
 		for _, dlCfgItem := range cfg.DownloadSection {
 			key := dlCfgItem.ID
 			if dlDataItem, ok := dlsMap[key]; ok {
-				_ = c.download(page, dlCfgItem, &dlDataItem, downloadRoot)
+				rnm, _ := c.download(page, dlCfgItem, &dlDataItem, downloadRoot)
+				if len(rnm) > 0 && len(dlCfgItem.InsertTo) > 0 {
+					pathArr := strings.Split(dlCfgItem.InsertTo, ".")
+					var targetSec map[string]interface{}
+					targetSec = result.Data
+					for _, k := range pathArr {
+						targetSec = targetSec[k].(map[string]interface{})
+					}
+					if files, ok1 := targetSec["files"].([]interface{}); ok1 {
+						for i, n := range rnm {
+							if fi, ok2 := files[i].(map[string]interface{}); ok2 {
+								fi["name"] = n
+							}
+						}
+					}
+				}
 			}
 		}
 	}
@@ -224,7 +239,8 @@ func (c *Crawler) processExtUrl(extCfg string, extNode DictData, itemName string
 	}
 }
 
-func (c *Crawler) download(page *rod.Page, dlCfg DownloadConfig, dlData *DownloadResult, downloadRoot string) error {
+func (c *Crawler) download(page *rod.Page, dlCfg DownloadConfig, dlData *DownloadResult, downloadRoot string) (renamed map[int]string, err error) {
+	renamed = make(map[int]string)
 	selector := dlCfg.Selector
 	downType := dlCfg.DownloadType
 
@@ -243,7 +259,7 @@ func (c *Crawler) download(page *rod.Page, dlCfg DownloadConfig, dlData *Downloa
 	browser := page.Browser()
 	elems, err := page.Elements(selector)
 	if err != nil {
-		return err
+		return
 	}
 
 	for i, elem := range elems {
@@ -269,6 +285,7 @@ func (c *Crawler) download(page *rod.Page, dlCfg DownloadConfig, dlData *Downloa
 				var fileName string
 				fileData, fileName = waitDownload()
 				if len(fileName) > 0 && fileName != dlData.Files[i].Name {
+					renamed[i] = fileName
 					dlData.Files[i].Name = fileName
 					fileFullPathName = filepath.Join(saveDir, fileName)
 				}
@@ -288,7 +305,7 @@ func (c *Crawler) download(page *rod.Page, dlCfg DownloadConfig, dlData *Downloa
 		}
 	}
 
-	return nil
+	return
 }
 
 func MustWaitDownloadRelax(b *rod.Browser) func() ([]byte, string) {

@@ -353,13 +353,7 @@ const crawlDownloadItem = (function () {
         if (elem.getBoundingClientRect().height > 0) {
             let fileName = dn.nameProper ? elem.getAttribute(dn.nameProper) : elem.text.trim();
             if (dn.nameRender) {
-                if(dn.nameRender === 'auto'){
-                    if(dn.downloadType === 'toPDF'){
-                        //
-                    } else {
-                        fileName = '::auto_placeholder';
-                    }
-                } else {
+                if(dn.nameRender !== 'auto'){
                     try {
                         let renderFnName = dn.id + '_dn_nameRender';
                         if (!renders[renderFnName]) {
@@ -465,23 +459,23 @@ function run(cfg) {
                     files.push(fileInfo);
                     if (dn.insertTo) {
                         const pathArray = dn.insertTo.split('.');
-                        let result = __result__.data;
+                        let targetSec = __result__.data;
                         for (let i = 0; i < pathArray.length - 1; i++) {
-                            if (typeof result[pathArray[i]] === 'undefined') {
-                                result[pathArray[i]] = {};
+                            if (typeof targetSec[pathArray[i]] === 'undefined') {
+                                targetSec[pathArray[i]] = {};
                             }
-                            result = result[pathArray[i]];
+                            targetSec = targetSec[pathArray[i]];
                         }
-                        const pClip = pathArray[pathArray.length - 1];
-                        if (typeof result[pClip] !== 'undefined') {
-                            if (!Array.isArray(result[pClip].files)) {
-                                result[pClip] = {
+                        const propName = pathArray[pathArray.length - 1];
+                        if (typeof targetSec[propName] !== 'undefined') {
+                            if (!Array.isArray(targetSec[propName].files)) {
+                                targetSec[propName] = {
                                     files: [],
                                     label: dn.label,
                                     downloadId: dn.id,
                                 };
                             }
-                            result[pClip].files.push(fileInfo);
+                            targetSec[propName].files.push(fileInfo);
                         }
                     }
                 }
@@ -493,3 +487,4 @@ function run(cfg) {
     }
     return __result__;
 }
+
