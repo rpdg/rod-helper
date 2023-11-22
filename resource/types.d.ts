@@ -3,308 +3,323 @@ export interface Json {
 }
 
 /**
- * 配置整体结构
+ * Overall configuration structure
  */
 export interface IConfig {
 	/**
-	 * 数据配置的根节点，是数据配置段与数据节点的联合数组
+	 * Root node of data configuration, an array that combines data configuration sections and data nodes
 	 */
 	dataSection: (IDataSection | IValueItem)[];
 
 	/**
-	 * 分支流程的配置节点，将在根dataSection执行完后，根据switch的结果执行对应分支
+	 * Configuration node for branching flow, executes the corresponding branch based on the switch result after the root dataSection is executed
 	 */
 	switchSection?: ISwitchSection;
 
 	/**
-	 * 下载配置的根节点，下载配置段的数组
+	 * Root node of download configuration, an array of download configuration sections
 	 */
 	downloadSection?: IDownloadSection[];
 
 	/**
-	 * 下载保存的根文件夹，注意可写权限
+	 * Root folder for saving downloads, note the write permission
 	 */
 	downloadRoot?: string;
 
 	/**
-	 * 判断页面加载完成与否的节点配置
+	 * Node configuration for determining whether the page has finished loading
 	 */
 	pageLoad?: {
 		/**
-		 * 页面结束标志
+		 * Page completion flag
 		 */
 		wait: 'show' | 'hide' | 'wait';
 
 		/**
-		 * 页面结束标志元素 css selector，当 wait 为show，hide时候，由此查找标志物
+		 * CSS selector for the completion flag element, used when wait is 'show' or 'hide'
 		 */
 		selector?: string;
 
 		/**
-		 * 等待时间秒，无论 wait 为show，hide，wait，皆可设置等待
+		 * Wait time in seconds, can be set regardless of wait being 'show', 'hide', or 'wait'
 		 */
 		sleep?: number;
 	};
 }
 
 /**
- * 配置段与节点的基类
+ * Base class for configuration sections and nodes
  */
 export interface IConfigNode {
 	/**
-	 * id必须在当前片段内唯一，将作为结果的 key 输出
+	 * The id must be unique within the current fragment and will be used as the key for the output result
 	 */
 	id: string;
 
 	/**
-	 * css selector
+	 * CSS selector
 	 */
 	selector: string;
 
-	/***
-	 * Javascript function String，用来对selector 的dom 结果进行修改，可选。
+	/**
+	 * JavaScript function string used to modify the DOM result of the selector, optional.
 	 *
-	 * 函数签名：(dom<Element | Element[] | null>) => Element | Element[] | null
+	 * Function signature: (dom<Element | Element[] | null>) => Element | Element[] | null
 	 */
 	domRender?: string;
 
 	/**
-	 * 中文描述，供阅读方便用
+	 * Description for readability
 	 */
 	label: string;
 }
 
 /**
- * 数据配置段
+ * Data configuration section
  */
 export interface IDataSection extends IConfigNode {
 	/**
-	 * 枚举
+	 * Enumeration
 	 */
 	sectionType: 'form' | 'list';
 
 	/**
-	 * 节点组
+	 * Node group
 	 */
 	items: IValueItem[];
 
-	/***
-	 * Javascript function String，用来对List Section 的结果进行过滤，可选。
+	/**
+	 * JavaScript function string used to filter the result of the List Section, optional.
 	 *
-	 * 函数签名同 array.proto.filter：
-	 * 固定传入 val, i, arr 三个参数，返回false的list item将被去除
+	 * Function signature is the same as Array.prototype.filter:
+	 * It takes three fixed parameters: val, i, arr, and returns false to remove the list item.
 	 */
 	filterRender?: string;
 
 	/**
-	 * Javascript function String，用来对结果进行转换，可选。
+	 * JavaScript function string used to transform the result, optional.
 	 *
-	 * 如果在List Section中同时有 filterRender & dataRender,
-	 * 那么 dataRender 将在 filterRender 之后执行
+	 * If both filterRender and dataRender exist in the List Section,
+	 * dataRender will be executed after filterRender.
 	 *
-	 * 例： "return parseInt(val, 10)" 即可将string转为number，
+	 * Example: "return parseInt(val, 10)" can convert a string to a number.
 	 *
-	 * 函数签名：固定传入 val, node 两个参数，this 指向当前的item
+	 * Function signature: It takes two fixed parameters: val, node, and this refers to the current item.
 	 */
 	dataRender?: string;
 }
 
 /**
- * 数据节点
+ * Data node
  */
 export interface IValueItem extends IConfigNode {
 	/**
-	 * 枚举
+	 * Enumeration
 	 */
 	itemType: 'text' | 'textBox' | 'radioBox' | 'checkBox' | 'dropBox' | 'download';
 
 	/**
-	 * 数据取值的dom属性，默认取 innerText
+	 * DOM attribute for data value, defaults to innerText
 	 */
 	valueProper?: string;
 
 	/**
-	 * Javascript function String，用来对结果进行转换，可选。
+	 * JavaScript function string used to transform the result, optional.
 	 *
-	 * 例： "return parseInt(val.replace(',', ''), 10)" 即可将string转为number，
+	 * Example: "return parseInt(val.replace(',', ''), 10)" can convert a string to a number.
 	 *
-	 * 函数签名：固定传入 val, node 两个参数，this 指向当前的item
+	 * Function signature: It takes two fixed parameters: val, node, and this refers to the current item.
 	 */
 	valueRender?: string;
 
 	/**
-	 * 当 itemType = download 时，通过 downloadId 值关联 downloadSection 中对应的配置
+	 * When itemType = download, it associates with the corresponding configuration in downloadSection based on the downloadId value.
 	 */
-	downloadId ?: string;
+	downloadId?: string;
 
 	/**
-	 * 外链页面的配置，可选。
+	 * Configuration for external link pages, optional.
 	 */
 	external?: {
 		/**
-		 * 链接的配置文件对于当前配置文件的相对路径，
-		 * 或者嵌入完整的 config对象
+		 * Relative path to the linked configuration file for the current configuration file,
+		 * or embedded complete config object.
 		 */
 		config: string | IConfig;
 
 		/**
-		 * 将作为结果的 key 输出，可选，如果不设则会使用所在IValueItem节点的id
+		 * Key used for outputting the result, optional. If not set, the id of the IValueItem node will be used.
 		 */
 		id?: string;
 	};
 }
 
 /**
- * 分支流程的配置节点
+ * Configuration node for branching flow
  */
 export interface ISwitchSection {
 	/**
-	 * Javascript function String，用来对结果进行转换，可选。
+	 * JavaScript function string used to transform the result, optional.
 	 *
-	 * 函数签名：(this\<SwitchSection>, data\<IResult>, config\<IConfig>) => string | number | bool | null | undefined
+	 * Function signature: (this<SwitchSection>, data<IResult>, config<IConfig>) => string | number | boolean | null | undefined
 	 *
-	 * 例： "return data.barCode.startsWith(('SN')" 即返回barCode是否以SN开头的bool
+	 * Example: "return data.barCode.startsWith(('SN')" returns a boolean indicating whether barCode starts with SN
 	 */
 	switchRender: string;
+
+	/**
+	 * Array of case items
+	 */
 	cases: ICaseItem[];
 }
 
 /**
- * 分支流程的Case配置
+ * Case configuration for branching flow
  */
 export interface ICaseItem {
 	/**
-	 * 匹配结果的case将会执行
+	 * The case that matches the result will be executed
 	 */
 	case: string | number | boolean | null | undefined | string[] | number[];
+
+	/**
+	 * Array of data sections and value items
+	 */
 	dataSection: (IDataSection | IValueItem)[];
 }
 
 /**
- * 下载配置段
+ * Download configuration section
  */
 export interface IDownloadSection extends IConfigNode {
 	/**
-	 * 保存文件夹子目录（downloadRoot的相对路径），如果空则取 id 为子目录名
+	 * Subdirectory for saving files (relative path to downloadRoot), if empty, the id will be used as the subdirectory name
 	 */
 	savePath: string;
 
-	/***
-	 * Javascript function String，用来对List Section 的结果进行过滤，可选。
+	/**
+	 * JavaScript function string used to filter the result of the List Section, optional.
 	 *
-	 * 函数签名同 array.proto.filter：
-	 * 固定传入 val, i, arr 三个参数，返回false的list item将被去除
+	 * Function signature is the same as Array.prototype.filter:
+	 * It takes three fixed parameters: val, i, arr, and returns false to remove the list item.
 	 */
 	// filterRender?: string;
 
 	/**
-	 * 文件名对应的dom属性，默认取 innerText
+	 * DOM attribute for the file name, defaults to innerText
 	 */
 	nameProper?: string;
 
 	/**
-	 * Javascript function String，用来对结果进行转换，可选。
+	 * JavaScript function string used to transform the result, optional.
 	 *
-	 * 函数签名：(this\<DownloadSection>, name\<string>, node\<HTMLElement>) => string
+	 * Function signature: (this<DownloadSection>, name<string>, node<HTMLElement>) => string
 	 *
-	 * 例："let parts = name.split('/'); return parts[parts.length - 1];"
+	 * Example: "let parts = name.split('/'); return parts[parts.length - 1];"
 	 *
-	 * 如果 nameRender = "auto"，那么将使用下载信息推荐的文件名
+	 * If nameRender = "auto", the recommended file name from the download information will be used.
 	 */
 	nameRender?: string;
 
 	/**
-	 * 链接对应的dom属性，默认取 innerText
+	 * DOM attribute for the link, defaults to innerText
 	 */
 	linkProper: string;
+
 	/**
-	 * Javascript function String，用来对结果进行转换，可选。
+	 * JavaScript function string used to transform the result, optional.
 	 *
-	 * 函数签名：(this\<DownloadSection>, link\<string>, node\<HTMLElement>) => string
+	 * Function signature: (this<DownloadSection>, link<string>, node<HTMLElement>) => string
 	 *
-	 * 例："let parts = link.split('/'); return parts[parts.length - 1];"
+	 * Example: "let parts = link.split('/'); return parts[parts.length - 1];"
 	 */
 	linkRender?: string;
 
 	/**
-	 * '枚举
+	 * Enumeration
 	 */
 	downloadType: 'url' | 'element' | 'toPDF';
 
 	/**
-	 * 插入对应的Result Data的路径
+	 * Path to insert into the corresponding Result Data
 	 */
-	insertTo ?: string;
+	insertTo?: string;
 }
 
 /**
- * 返回结果
+ * Result object
  */
 export interface IResult {
 	/**
-	 * 数据存放段
+	 * Data storage section
 	 */
 	data: Record<string, any>;
 
 	/**
-	 * 执行后的下载段
+	 * Download section after execution
 	 */
 	downloads: Record<string, IDownloadResult>;
 
 	/**
-	 * 解析后的下载基础路径
+	 * Parsed base path for downloads
 	 */
 	downloadRoot?: string;
 
 	/**
-	 * 解析后的外链段
+	 * Parsed external section
 	 */
 	externalSection?: Record<string, IExternal>;
 }
 
+/**
+ * File information object
+ */
 export interface IFileInfo {
 	/**
-	 * 文件名
+	 * File name
 	 */
 	name: string;
+
 	/**
-	 * 若是url | toPDF 类型的下载，则会在此处存放下载链接
+	 * If it is a url or toPDF type download, the download link will be stored here
 	 */
 	url: string;
+
 	/**
-	 * 出错的话才有
+	 * Error message, only present if there is an error
 	 */
 	error: string;
 }
 
 /**
- * IResult的下载段
+ * Download section of IResult
  */
 export interface IDownloadResult {
 	/**
-	 * 即 IDownloadSection 的对应 label
+	 * Corresponding label of IDownloadSection
 	 */
 	label: string;
+
 	/**
-	 * 下载文件列表
+	 * List of downloaded files
 	 */
 	files: IFileInfo[];
 }
 
 /**
- * IResult的外链段
+ * External section of IResult
  */
 export interface IExternal {
 	id: string;
 
 	/**
-	 * 链接的配置文件对于当前配置文件的相对路径，路径注意用 \\ 或 /
-	 * 或者嵌入完整的 config对象
+	 * Relative path to the linked configuration file for the current configuration file, path should use \\ or /
+	 * or embedded complete config object
 	 */
 	config: string | IConfig;
 
 	/**
-	 * 关联字段
+	 * Associated field
 	 */
 	connect: string;
 }

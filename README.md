@@ -5,7 +5,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/rpdg/rod-helper.svg)](https://pkg.go.dev/github.com/rpdg/rod-helper)
 
 
-A library of auxiliary tools for [rod](https://github.com/go-rod/rod), the goal is to simplify the process of rod scraping web data through configurability. The final output can be changed by modifying the configuration file without having to recompile the program.
+A configurable web data crawler library uses [rod](https://github.com/go-rod/rod), the goal is to simplify the process of rod scraping web data through configurability. The final output can be changed by modifying the configuration file without having to recompile the program.
 
 # Usage
 
@@ -15,11 +15,10 @@ A library of auxiliary tools for [rod](https://github.com/go-rod/rod), the goal 
 func main() {
 	r := rpa.Crawler{}
 	r.AttachDefaultBrowser()
-	b := r.Browser
-	b.Close()
+	defer r.Close()
 
 	url := "https://cn.bing.com/search?q=sample+simple+pdf"
-	val, _, err := r.CrawlUrl(url, "./sample/bing.json", true, true)
+	val, _, err := r.CrawlUrl(url, "./sample/sample_zip.json", true, true)
 	if err != nil {
 		fmt.Println(err)
 	} else {

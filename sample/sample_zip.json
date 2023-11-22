@@ -1,0 +1,27 @@
+{
+  "dataSection": [
+    {
+      "label": "Sample zip files",
+      "id": "linkList",
+      "selector": ".elementor-widget-container ",
+      "sectionType": "list",
+      "items": [
+        {
+          "label": "file desc",
+          "id": "title",
+          "selector": "h3.package-title",
+          "itemType": "text"
+        }
+      ]
+    }
+  ],
+  "downloadRoot": "c:\\attachment2",
+  "downloadSection": [
+    {
+      "selector": "a.download-on-click",
+      "label": "Zip File",
+      "id": "zip_files",
+      "downloadType": "url"
+    }
+  ]
+}

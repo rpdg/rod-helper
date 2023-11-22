@@ -95,6 +95,10 @@ type Crawler struct {
 	CfgFetcher func(path string) (*CrawlerConfig, error)
 }
 
+func (c *Crawler) Close() {
+	c.Browser.MustClose()
+}
+
 func (c *Crawler) CrawlUrl(url string, cfgOrFile interface{}, autoDownload bool, closeTab bool) (*Result, *rod.Page, error) {
 	var err error
 
