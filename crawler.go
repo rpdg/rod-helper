@@ -200,10 +200,10 @@ func (c *Crawler) CrawlPage(page *rod.Page, cfgOrFile interface{}, autoDownload 
 				resNode = result.Data
 
 				if cc != "" {
-					resNode, itemName = GetDictAndLastSegmentByPath(resNode.(DictData), cc)
-					//if err != nil {
-					//	return nil, err
-					//}
+					resNode, itemName, err = GetDictAndLastSegmentByPath(resNode.(DictData), cc)
+					if err != nil {
+						return nil, err
+					}
 				}
 
 				if resNode != nil {

@@ -11,11 +11,11 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -137,9 +137,9 @@ func WaitPage(page *rod.Page, sleep int64, selector string, sign WaitSign) (err 
 	if selector != "" {
 		switch sign {
 		case WaitShow:
-			err = WaitElementShow(page, selector, 20)
+			err = WaitElementShow(page, selector, 30)
 		case WaitHide:
-			err = WaitElementHide(page, selector, 20)
+			err = WaitElementHide(page, selector, 30)
 		}
 	}
 
@@ -150,222 +150,184 @@ func WaitPage(page *rod.Page, sleep int64, selector string, sign WaitSign) (err 
 	return
 }
 
-func RaceShow(page *rod.Page, selectors []string, timeoutSeconds int) (index int, elem *rod.Element, err error) {
-	done := make(chan *rod.Element, 1)
-	timeout := time.After(time.Second * time.Duration(timeoutSeconds))
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				switch x := r.(type) {
-				case string:
-					err = errors.New(x)
-				case error:
-					err = x
-				default:
-					err = errors.New("unknown panic")
+// RaceShow waits for the first element to become visible from a list of selectors.
+// Returns the index of the first visible element, the element itself, and any error
+func RaceShow(page *rod.Page, selectors []string, timeoutSeconds int) (int, *rod.Element, error) {
+	type result struct {
+		index int
+		elem  *rod.Element
+		err   error
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSeconds)*time.Second)
+	defer cancel()
+
+	resultChan := make(chan result, 1)
+
+	// Start concurrent checks for each selector
+	for i := range selectors {
+		go func(index int, selector string) {
+			ticker := time.NewTicker(100 * time.Millisecond)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					func() {
+						defer func() {
+							if r := recover(); r != nil {
+								var e error
+								switch x := r.(type) {
+								case string:
+									e = errors.New(x)
+								case error:
+									e = x
+								default:
+									e = errors.New("unknown panic")
+								}
+								resultChan <- result{-1, nil, e}
+							}
+						}()
+
+						if ElementVisible(page, selector) {
+							if elemX, errX := page.Element(selector); errX == nil {
+								resultChan <- result{index, elemX, nil}
+								return
+							}
+						}
+					}()
 				}
 			}
-		}()
-	OutLoop:
-		for {
-			for i, selector := range selectors {
-				if ElementVisible(page, selector) {
-					index = i
-					done <- page.MustElement(selector)
-					break OutLoop
-				}
-			}
-			time.Sleep(time.Millisecond * 100)
-		}
-	}()
+		}(i, selectors[i])
+	}
 
 	select {
-	case elem = <-done:
-		break
-	case <-timeout:
-		err = errors.New("wait elements timed out")
-		break
+	case <-ctx.Done():
+		return -1, nil, fmt.Errorf("timeout waiting for elements after %d seconds", timeoutSeconds)
+	case r := <-resultChan:
+		return r.index, r.elem, r.err
 	}
-	return
 }
 
-// WaitElementHide waiting for a certain element on the page to disappear
-func WaitElementHide(page *rod.Page, selector string, timeoutSeconds int) (err error) {
-	v := ElementVisible(page, selector)
-	if !v {
-		return
+// WaitElementHide waits for an element to become invisible on the page
+func WaitElementHide(page *rod.Page, selector string, timeoutSeconds int) error {
+	if !ElementVisible(page, selector) {
+		return nil
 	}
-	p := true
-	done := make(chan struct{}, 1)
-	timeout := time.After(time.Second * time.Duration(timeoutSeconds))
 
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				switch x := r.(type) {
-				case string:
-					err = errors.New(x)
-				case error:
-					err = x
-				default:
-					err = errors.New("unknown panic")
-				}
+	ctx, cancel := context.WithTimeout(context.Background(),
+		time.Duration(timeoutSeconds)*time.Second)
+	defer cancel()
+
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	var lastState bool = true
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("wait element hide timed out after %d seconds", timeoutSeconds)
+		case <-ticker.C:
+			visible := ElementVisible(page, selector)
+			if !lastState && !visible {
+				return nil
 			}
-		}()
-		for {
-			v = ElementVisible(page, selector)
-			if !p && !v {
-				break
+			if visible != lastState {
+				lastState = false
 			}
-			if v != p {
-				p = false
-			}
-			time.Sleep(time.Millisecond * 100)
 		}
-		done <- struct{}{}
-	}()
-
-	select {
-	case <-done:
-		break
-	case <-timeout:
-		err = errors.New("wait element hide timed out")
-		break
 	}
-	return
 }
 
-// WaitElementShow waiting for a certain element on the page to appear
+// WaitElementShow waits for an element to become visible on the page
 func WaitElementShow(page *rod.Page, selector string, timeoutSeconds int) (err error) {
-	v := ElementVisible(page, selector)
-	if v {
+	if ElementVisible(page, selector) {
 		return
 	}
-	p := false
-	done := make(chan struct{}, 1)
-	timeout := time.After(time.Second * time.Duration(timeoutSeconds))
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				switch x := r.(type) {
-				case string:
-					err = errors.New(x)
-				case error:
-					err = x
-				default:
-					err = errors.New("unknown panic")
-				}
-			}
-		}()
-		for {
-			v = ElementVisible(page, selector)
-			if p && v {
-				break
-			}
-			if v != p {
-				p = true
-			}
-			time.Sleep(time.Millisecond * 100)
-		}
-		done <- struct{}{}
-	}()
 
-	select {
-	case <-done:
-		break
-	case <-timeout:
-		err = errors.New("wait element show timed out")
-		break
+	ctx, cancel := context.WithTimeout(context.Background(),
+		time.Duration(timeoutSeconds)*time.Second)
+	defer cancel()
+
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	var lastState bool
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("wait element show timed out after %d seconds", timeoutSeconds)
+		case <-ticker.C:
+			visible := ElementVisible(page, selector)
+			if lastState && visible {
+				return
+			}
+			if visible != lastState {
+				lastState = true
+			}
+		}
 	}
-
-	return
 }
 
-// ElementVisible detects whether the selected element is existed and visible
+// 共享的 JavaScript 代码
+const commonJSCode = `
+const replacePseudo = (selector, parentElement = document) => {
+    let doc = parentElement;
+    const pseudoMatch = selector.match(/^:(frame|shadow)\((.+?)\)/);
+    
+    if (!pseudoMatch) {
+        return { doc, selector, ctxChanged: false };
+    }
+    
+    const [, pseudoType, pseudoSelector] = pseudoMatch;
+    const pseudoElem = parentElement.querySelector(pseudoSelector);
+    
+    if (!pseudoElem) {
+        return { doc, selector, ctxChanged: false };
+    }
+    
+    doc = pseudoType === 'frame' ? pseudoElem.contentWindow.document : pseudoElem.shadowRoot;
+    selector = selector.slice(pseudoMatch[0].length).trim();
+    
+    return /^:(frame|shadow)\(/.test(selector) ? replacePseudo(selector, doc) : { doc, selector, ctxChanged: true };
+};
+
+const queryElem = (selector, parentElement = document) => {
+    const { doc, selector: finalSelector } = replacePseudo(selector, parentElement);
+    return doc.querySelector(finalSelector);
+};
+`
+
+// ElementVisible checks if an element is visible on the page
 func ElementVisible(page *rod.Page, selector string) bool {
-	jsCode := fmt.Sprintf(`
-	(selector) => {
-		function replacePseudo(selector, parentElement = document) {
-			let doc = parentElement;
-			let ctxChanged = false;
-			let pseudoMatch = selector.match(/^:(frame|shadow)\((.+?)\)/);
-			if (pseudoMatch) {
-				let pseudoType = pseudoMatch[1];
-				let pseudoSelector = pseudoMatch[2];
-				let pseudoElem = parentElement.querySelector(pseudoSelector);
-				if (pseudoElem) {
-					doc = pseudoType === 'frame' ? pseudoElem.contentWindow.document : pseudoElem.shadowRoot;
-					selector = selector.slice(pseudoMatch[0].length).trim();
-					ctxChanged = true;
-				}
-			}
-			if (/^:(frame|shadow)\(/.test(selector)) {
-				return replacePseudo(selector, doc);
-			}
-			return { doc, selector, ctxChanged };
-		}
-		function queryElem(selectorString, parentElement = document) {
-			let secNode = null;
-			let { doc, selector } = replacePseudo(selectorString, parentElement);
-			secNode = doc.querySelector(selector);
-			return secNode;
-		}
-		try {
-			let elem = queryElem(selector);
-			if (elem) {
-				let rect = elem.getBoundingClientRect();
-				return rect.height > 0 && rect.width > 0;
-			} else {
-				return false;
-			}
-		} catch (e) {
-			return false;
-		}
-	}`)
+	const jsCode = commonJSCode + `
+    (selector) => {
+        try {
+            const elem = queryElem(selector);
+            if (!elem) return false;
+            
+            const { height, width } = elem.getBoundingClientRect();
+            return height > 0 && width > 0;
+        } catch {
+            return false;
+        }
+    }`
 
-	result := page.MustEval(jsCode, selector)
-	return result.Bool()
+	return page.MustEval(jsCode, selector).Bool()
 }
 
+// QueryElem returns the element matching the selector
 func QueryElem(page *rod.Page, selector string) (*rod.Element, error) {
-	jsCode := fmt.Sprintf(`
-	(selector) => {
-		function replacePseudo(selector, parentElement = document) {
-			let doc = parentElement;
-			let ctxChanged = false;
-			let pseudoMatch = selector.match(/^:(frame|shadow)\((.+?)\)/);
-			if (pseudoMatch) {
-				let pseudoType = pseudoMatch[1];
-				let pseudoSelector = pseudoMatch[2];
-				let pseudoElem = parentElement.querySelector(pseudoSelector);
-				if (pseudoElem) {
-					doc = pseudoType === 'frame' ? pseudoElem.contentWindow.document : pseudoElem.shadowRoot;
-					selector = selector.slice(pseudoMatch[0].length).trim();
-					ctxChanged = true;
-				}
-			}
-			if (/^:(frame|shadow)\(/.test(selector)) {
-				return replacePseudo(selector, doc);
-			}
-			return { doc, selector, ctxChanged };
-		}
-		function queryElem(selectorString, parentElement = document) {
-			let secNode = null;
-			let { doc, selector } = replacePseudo(selectorString, parentElement);
-			secNode = doc.querySelector(selector);
-			return secNode;
-		}
-		try {
-			let elem = queryElem(selector);
-			if (elem) {
-				return elem;
-			} else {
-				return null;
-			}
-		} catch (e) {
-			return null;
-		}
-	}`)
+	const jsCode = commonJSCode + `
+    (selector) => {
+        try {
+            return queryElem(selector) || null;
+        } catch {
+            return null;
+        }
+    }`
 
 	opts := &rod.EvalOptions{
 		JS: jsCode,
@@ -376,135 +338,337 @@ func QueryElem(page *rod.Page, selector string) (*rod.Element, error) {
 	return page.ElementByJS(opts)
 }
 
-// RenameFileUnique rename file name if there are duplicate files
-func RenameFileUnique(dir, fileName, ext string, try int) string {
-	var rawFileName string
-	if try == 0 {
-		rawFileName = path.Join(dir, fmt.Sprintf("%s%s", fileName, ext))
-	} else {
-		rawFileName = path.Join(dir, fmt.Sprintf("%s_%d%s", fileName, try, ext))
+// RenameFileUnique generates a unique filename by appending a number if the file already exists
+func RenameFileUnique(dir, fileName, ext string) string {
+	for try := 0; try < 1000; try++ {
+		name := fileName
+		if try > 0 {
+			name = fmt.Sprintf("%s_%d", fileName, try)
+		}
+
+		fullPath := filepath.Join(dir, name+ext)
+		exists, err := FileExists(fullPath)
+		if err != nil {
+			timestamp := time.Now().UnixNano()
+			return filepath.Join(dir, fmt.Sprintf("%s_%d%s", fileName, timestamp, ext))
+		}
+
+		if !exists {
+			return fullPath
+		}
 	}
 
-	if exists, _ := FileExists(rawFileName); exists {
-		return RenameFileUnique(dir, fileName, ext, try+1)
-	}
-
-	return rawFileName
+	// If we've tried 1000 times and still no success, fallback to timestamp
+	timestamp := time.Now().UnixNano()
+	return filepath.Join(dir, fmt.Sprintf("%s_%d%s", fileName, timestamp, ext))
 }
 
 // FileExists to check if a file exists
 func FileExists(name string) (bool, error) {
 	_, err := os.Stat(name)
+
 	if err == nil {
 		return true, nil
 	}
+
 	if errors.Is(err, os.ErrNotExist) {
 		return false, nil
 	}
+
 	return false, err
 }
 
-// EmptyDirectory will delete all the contents of a directory
-func EmptyDirectory(dir string) error {
-	d, err := os.Open(dir)
-	if err != nil {
-		return err
+func emptyDirectoryConcurrent(dir string, entries []os.DirEntry) error {
+	const maxWorkers = 10
+	numWorkers := min(maxWorkers, len(entries))
+
+	errChan := make(chan error, len(entries))
+	semaphore := make(chan struct{}, numWorkers)
+
+	var wg sync.WaitGroup
+	for _, entry := range entries {
+		wg.Add(1)
+		go func(e os.DirEntry) {
+			defer wg.Done()
+			semaphore <- struct{}{}        // Acquire
+			defer func() { <-semaphore }() // Release
+
+			path := filepath.Join(dir, e.Name())
+			if err := os.RemoveAll(path); err != nil {
+				errChan <- fmt.Errorf("failed to remove %s: %w", path, err)
+			}
+		}(entry)
 	}
-	defer d.Close()
-	names, err := d.Readdirnames(-1)
-	if err != nil {
-		return err
+
+	// Wait for all deletions to complete
+	wg.Wait()
+	close(errChan)
+
+	// Check for any errors
+	for err := range errChan {
+		return err // Return first error encountered
 	}
-	for _, name := range names {
-		err = os.RemoveAll(filepath.Join(dir, name))
-		if err != nil {
-			return err
-		}
-	}
+
 	return nil
 }
 
-var exp = regexp.MustCompile(`([<>:"/\\\|?*]+)`)
+// EmptyDirectory removes all contents of a directory while preserving the directory itself
+func EmptyDirectory(dir string) error {
+	if dir == "" {
+		return fmt.Errorf("directory path cannot be empty")
+	}
 
-// NormalizeFilename will replace <>:"/\|?* in string
-func NormalizeFilename(name string) string {
-	outName := exp.ReplaceAllString(name, "_")
-	//println(name, outName)
-	return outName
-}
+	dirInfo, err := os.Stat(dir)
+	if err != nil {
+		return fmt.Errorf("failed to access directory: %w", err)
+	}
+	if !dirInfo.IsDir() {
+		return fmt.Errorf("path %s is not a directory", dir)
+	}
 
-// GetDictAndLastSegmentByPath returns the data extracted from the path and the last segment of the path.
-func GetDictAndLastSegmentByPath(data map[string]interface{}, path string) (interface{}, string) {
-	keys := strings.Split(strings.Trim(path, "/"), "/")
-	lastSegment := keys[len(keys)-1]
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return fmt.Errorf("failed to read directory: %w", err)
+	}
 
-	var dictData interface{} = data
-	for _, key := range keys[:len(keys)-1] {
-		if dict, ok := dictData.(map[string]interface{}); ok {
-			if val, exists := dict[key]; exists {
-				dictData = val
-			} else {
-				dictData = nil
-				break
-			}
-		} else {
-			dictData = nil
-			break
+	if len(entries) == 0 {
+		return nil
+	}
+
+	// Use worker pool for large directories
+	if len(entries) > 100 {
+		return emptyDirectoryConcurrent(dir, entries)
+	}
+
+	// Use sequential deletion for small directories
+	for _, entry := range entries {
+		path := filepath.Join(dir, entry.Name())
+		if err := os.RemoveAll(path); err != nil {
+			return fmt.Errorf("failed to remove %s: %w", path, err)
 		}
 	}
 
-	return dictData, lastSegment
+	return nil
+}
+
+var (
+	// invalidFileChars 包含 Windows 和类 Unix 系统中文件名的非法字符
+	invalidFileChars = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1F]`)
+
+	// multipleUnderscores 用于替换连续的下划线
+	multipleUnderscores = regexp.MustCompile(`_+`)
+
+	// reservedNames 是 Windows 系统保留的文件名
+	reservedNames = map[string]bool{
+		"CON": true, "PRN": true, "AUX": true, "NUL": true,
+		"COM1": true, "COM2": true, "COM3": true, "COM4": true,
+		"LPT1": true, "LPT2": true, "LPT3": true, "LPT4": true,
+	}
+)
+
+// NormalizeFilename sanitizes a filename to be safe for all operating systems.
+// It removes invalid characters, handles reserved names, and ensures the result
+// is a valid filename.
+func NormalizeFilename(name string) string {
+	if name == "" {
+		return "_"
+	}
+
+	// 去除首尾空格
+	name = strings.TrimSpace(name)
+
+	// 替换无效字符为下划线
+	name = invalidFileChars.ReplaceAllString(name, "_")
+
+	// 合并多个连续的下划线
+	name = multipleUnderscores.ReplaceAllString(name, "_")
+
+	// 去除首尾的下划线
+	name = strings.Trim(name, "_")
+
+	// 如果名称为空（例如，原始字符串只包含无效字符）
+	if name == "" {
+		return "_"
+	}
+
+	// 检查 Windows 保留名称
+	upperName := strings.ToUpper(name)
+	baseName := strings.Split(upperName, ".")[0]
+	if reservedNames[baseName] {
+		name = "_" + name
+	}
+
+	// 确保文件名不超过最大长度（Windows 限制为 255 个字符）
+	const maxLength = 255
+	if len(name) > maxLength {
+		ext := filepath.Ext(name)
+		name = name[:maxLength-len(ext)] + ext
+	}
+
+	return name
+}
+
+// GetDictAndLastSegmentByPath traverses a nested map structure using a path and returns
+// the parent data, the last path segment, and any error encountered.
+func GetDictAndLastSegmentByPath(data map[string]interface{}, path string) (interface{}, string, error) {
+	if len(path) == 0 {
+		return nil, "", fmt.Errorf("empty path")
+	}
+	if data == nil {
+		return nil, "", fmt.Errorf("nil data")
+	}
+
+	path = strings.Trim(path, "/")
+	keys := strings.Split(path, "/")
+	if len(keys) == 0 {
+		return nil, "", fmt.Errorf("invalid path format")
+	}
+
+	lastIndex := len(keys) - 1
+	lastSegment := keys[lastIndex]
+
+	if lastIndex == 0 {
+		return data, lastSegment, nil
+	}
+
+	current := interface{}(data)
+	for i, key := range keys[:lastIndex] {
+		dict, ok := current.(map[string]interface{})
+		if !ok {
+			return nil, lastSegment, fmt.Errorf("invalid type at path segment %q",
+				strings.Join(keys[:i+1], "/"))
+		}
+
+		current, ok = dict[key]
+		if !ok {
+			return nil, lastSegment, fmt.Errorf("key not found at path segment %q",
+				strings.Join(keys[:i+1], "/"))
+		}
+	}
+
+	return current, lastSegment, nil
 }
 
 type ExecuteResult struct {
-	output string
-	err    error
+	Output string
+	Err    error
 }
 
-// ExecShell 执行shell命令，可设置执行超时时间
+// ExecShell executes a shell command with timeout control
+// ctx can be created with timeout using context.WithTimeout
 func ExecShell(ctx context.Context, command string) (string, error) {
+	if ctx == nil {
+		return "", fmt.Errorf("context cannot be nil")
+	}
+	if command == "" {
+		return "", fmt.Errorf("command cannot be empty")
+	}
+
+	// Create command
 	cmd := exec.Command("cmd", "/C", command)
-	// 隐藏cmd窗口
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		HideWindow: true,
 	}
-	var resultChan chan ExecuteResult = make(chan ExecuteResult)
+
+	// Create a buffered channel to avoid goroutine leak
+	resultChan := make(chan ExecuteResult, 1)
+
+	// Start command execution in goroutine
 	go func() {
 		output, err := cmd.CombinedOutput()
-		resultChan <- ExecuteResult{string(output), err}
+		resultChan <- ExecuteResult{
+			Output: GBK2UTF8(string(output)),
+			Err:    err,
+		}
 	}()
+
+	// Wait for either command completion or context cancellation
 	select {
 	case <-ctx.Done():
-		if cmd.Process.Pid > 0 {
-			exec.Command("taskkill", "/F", "/T", "/PID", strconv.Itoa(cmd.Process.Pid)).Run()
-			cmd.Process.Kill()
+		// Try to kill the process gracefully first
+		if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
+			// If SIGTERM fails, force kill
+			KillProcess(cmd.Process.Pid)
 		}
-		return "", errors.New("timeout killed")
+
+		// Wait a short time for process to terminate
+		time.Sleep(100 * time.Millisecond)
+
+		// Force kill if still running
+		if IsProcessRunning(cmd.Process.Pid) {
+			KillProcess(cmd.Process.Pid)
+		}
+
+		return "", fmt.Errorf("command execution timeout: %w", ctx.Err())
+
 	case result := <-resultChan:
-		return GBK2UTF8(result.output), result.err
+		if result.Err != nil {
+			return result.Output, fmt.Errorf("command execution failed: %w", result.Err)
+		}
+		return result.Output, nil
 	}
+}
+
+// KillProcess forcefully terminates a process and its children
+func KillProcess(pid int) {
+	if pid <= 0 {
+		return
+	}
+
+	killCmd := exec.Command("taskkill", "/F", "/T", "/PID", strconv.Itoa(pid))
+	killCmd.Run() // Ignore error as we'll try Process.Kill anyway
+
+	if process, err := os.FindProcess(pid); err == nil {
+		process.Kill() // Ignore error as process might already be dead
+	}
+}
+
+// IsProcessRunning checks if a process is still running
+func IsProcessRunning(pid int) bool {
+	if pid <= 0 {
+		return false
+	}
+
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+
+	// On Windows, FindProcess always succeeds, so we need to check if we can signal it
+	err = process.Signal(syscall.Signal(0))
+	return err == nil
 }
 
 // GBK2UTF8 GBK编码转换为UTF8
 func GBK2UTF8(s string) string {
 	dec := mahonia.NewDecoder("gbk")
+	if dec == nil {
+		return s
+	}
+
 	return dec.ConvertString(s)
 }
 
+// ExtractUrlParam extracts a specific parameter value from a URL string
 func ExtractUrlParam(urlString, paramName string) (string, error) {
-	u, err := url.Parse(urlString)
+	if urlString == "" || paramName == "" {
+		return "", fmt.Errorf("url or parameter name cannot be empty")
+	}
+
+	parsedURL, err := url.Parse(urlString)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("invalid URL: %w", err)
 	}
-	params, err := url.ParseQuery(u.RawQuery)
-	if err != nil {
-		return "", err
+
+	// Parse query parameters
+	query := parsedURL.Query()
+
+	// Check if parameter exists
+	if !query.Has(paramName) {
+		return "", fmt.Errorf("parameter '%s' not found", paramName)
 	}
-	values, ok := params[paramName]
-	if !ok || len(values) == 0 {
-		return "", fmt.Errorf("parameter not found")
-	}
-	return values[0], nil
+
+	return query.Get(paramName), nil
 }
 
 // import "github.com/AllenDang/w32"
