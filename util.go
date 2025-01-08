@@ -302,8 +302,8 @@ const queryElem = (selector, parentElement = document) => {
 
 // ElementVisible checks if an element is visible on the page
 func ElementVisible(page *rod.Page, selector string) bool {
-	const jsCode = commonJSCode + `
-    (selector) => {
+	jsCode := fmt.Sprintf(`(selector) => {
+		%s
         try {
             const elem = queryElem(selector);
             if (!elem) return false;
@@ -313,21 +313,21 @@ func ElementVisible(page *rod.Page, selector string) bool {
         } catch {
             return false;
         }
-    }`
+    }`, commonJSCode)
 
 	return page.MustEval(jsCode, selector).Bool()
 }
 
 // QueryElem returns the element matching the selector
 func QueryElem(page *rod.Page, selector string) (*rod.Element, error) {
-	const jsCode = commonJSCode + `
-    (selector) => {
+	jsCode := fmt.Sprintf(`(selector) => {
+		%s
         try {
             return queryElem(selector) || null;
         } catch {
             return null;
         }
-    }`
+    }`, commonJSCode)
 
 	opts := &rod.EvalOptions{
 		JS: jsCode,
